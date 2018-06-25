@@ -77,16 +77,16 @@ _PIO4 = .78539816339744830962
 @jit
 def _polevl(x, coef):
     ans = coef[0]
-    for c in coef[1:]:
-        ans = ans*x + c
+    for i in range(1, coef.shape[0]):
+        ans = ans*x + coef[i]
     return ans
 
 
 @jit
 def _p1evl(x, coef):
     ans = x + coef[0]
-    for c in coef[1:]:
-        ans = ans*x + c
+    for i in range(1, coef.shape[0]):
+        ans = ans*x + coef[i]
     return ans
 
 
