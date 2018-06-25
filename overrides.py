@@ -23,7 +23,7 @@ def _add_override(name, math_fn, cmath_fn, np_fn):
         else:
             fn = np_fn
         impl = context.get_function(fn, sig)
-        return func(builder, args)
+        return impl(builder, args)
     @nb.typing.templates.infer
     @nb.cuda.cudadecl.intrinsic
     class OverrideIntrinsicTemplate(nb.typing.templates.AbstractTemplate):
