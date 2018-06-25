@@ -2,11 +2,44 @@ import os
 os.environ['NUMBAPRO_NVVM'] = '/usr/local/cuda/nvvm/lib64/libnvvm.so'
 os.environ['NUMBAPRO_LIBDEVICE'] = '/usr/local/cuda/nvvm/libdevice/'
 import math
+import cmath
 import numpy as np
 import numba as nb
 import numba.cuda
+import numba.cuda.cudaimpl
+import numba.cuda.cudadecl
 
-jit = nb.cuda.jit
+
+
+def add_override(name, math_impl, cmath_impl, np_impl):
+    stub = type(name, (nb.cuda.stubs.Stub,), {'_description_': '<{}()>'.format(name)})
+    @numba.cuda.cudaimpl.lower(stub, nb.types.Any)
+    def lower_override(context, builder, sig, args):
+        x = sig.args[0]
+        if isinstance(x, nb.types.Integer) or isinstance(x, nb.types.Float):
+            func = lambda x: math_impl(x)
+        elif isinstance(x, nb.types.Complex):
+            func = lambda x: cmath_impl(x)
+        else:
+            func = lambda x: np_impl(x)
+        res = context.compile_internal(builder, func, sig, args)
+        return nb.targets.imputils.impl_ret_untracked(context, builder, sig, res)
+    @nb.cuda.cudadecl.intrinsic
+    class OverrideIntrinsicTemplate(nb.typing.templates.AbstractTemplate):
+        key = stub
+        def generic(self, args, kws):
+            return args[0](args[0])
+    nb.cuda.cudadecl.intrinsic_global(stub, nb.types.Function(OverrideIntrinsicTemplate))
+    return stub
+
+exp = add_override('exp', math.exp, cmath.exp, np.exp)
+sqrt = add_override('sqrt', math.sqrt, cmath.sqrt, np.sqrt)
+sin = add_override('sin', math.sin, cmath.sin, np.sin)
+cos = add_override('cos', math.cos, cmath.cos, np.cos)
+sinh = add_override('sinh', math.sinh, cmath.sinh, np.sinh)
+cosh = add_override('cosh', math.cosh, cmath.cosh, np.cosh)
+arcsin = add_override('arcsin', math.asin, cmath.asin, np.arcsin)
+
 
 _x_kr21 = np.array([-9.956571630258080807355272806890028e-01, -9.739065285171717200779640120844521e-01, -9.301574913557082260012071800595083e-01, -8.650633666889845107320966884234930e-01, -7.808177265864168970637175783450424e-01, -6.794095682990244062343273651148736e-01, -5.627571346686046833390000992726941e-01, -4.333953941292471907992659431657842e-01, -2.943928627014601981311266031038656e-01, -1.488743389816312108848260011297200e-01, 0.0, 1.488743389816312108848260011297200e-01, 2.943928627014601981311266031038656e-01, 4.333953941292471907992659431657842e-01, 5.627571346686046833390000992726941e-01, 6.794095682990244062343273651148736e-01, 7.808177265864168970637175783450424e-01, 8.650633666889845107320966884234930e-01, 9.301574913557082260012071800595083e-01, 9.739065285171717200779640120844521e-01, 9.956571630258080807355272806890028e-01])
 
@@ -40,26 +73,26 @@ def gen_impedance(n):
 
 @nb.cuda.jit(device=True)
 def _gen_reflectance_coeff(t, n, m):
-    Rs = ((n*math.cos(t)-m*math.sqrt(1-(n/m*math.sin(t))**2)) / (n*math.cos(t)+m*math.sqrt(1-(n/m*math.sin(t))**2)))**2
-    Rp = ((n*math.sqrt(1-(n/m*math.sin(t))**2)-m*math.cos(t)) / (n*math.sqrt(1-(n/m*math.sin(t))**2)+m*math.cos(t)))**2
+    Rs = ((n*cos(t)-m*sqrt(1-(n/m*sin(t))**2)) / (n*cos(t)+m*sqrt(1-(n/m*sin(t))**2)))**2
+    Rp = ((n*sqrt(1-(n/m*sin(t))**2)-m*cos(t)) / (n*sqrt(1-(n/m*sin(t))**2)+m*cos(t)))**2
     Rfres = (Rs + Rp) / 2
-    return 3*(1 - Rfres)*math.cos(t)**2*math.sin(t) / 2
+    return 3*(1 - Rfres)*cos(t)**2*sin(t) / 2
 
 
 @nb.cuda.jit(device=True)
 def _gen_fluence_rate_coeff(t, n, m):
-    Rs = ((n*math.cos(t)-m*math.sqrt(1-(n/m*math.sin(t))**2)) / (n*math.cos(t)+m*math.sqrt(1-(n/m*math.sin(t))**2)))**2
-    Rp = ((n*math.sqrt(1-(n/m*math.sin(t))**2)-m*math.cos(t)) / (n*math.sqrt(1-(n/m*math.sin(t))**2)+m*math.cos(t)))**2
+    Rs = ((n*cos(t)-m*sqrt(1-(n/m*sin(t))**2)) / (n*cos(t)+m*sqrt(1-(n/m*sin(t))**2)))**2
+    Rp = ((n*sqrt(1-(n/m*sin(t))**2)-m*cos(t)) / (n*sqrt(1-(n/m*sin(t))**2)+m*cos(t)))**2
     Rfres = (Rs + Rp) / 2
-    return (1 - Rfres)*math.cos(t)*math.sin(t) / 2
+    return (1 - Rfres)*cos(t)*sin(t) / 2
 
 
 @nb.cuda.jit(device=True)
 def gen_coeffs(n, n_ext):
     return (
         gen_impedance(n/n_ext), 
-        integrate(_gen_reflectance_coeff, 0, math.asin(n_ext/n), 10, (n, n_ext)), 
-        integrate(_gen_fluence_rate_coeff, 0, math.asin(n_ext/n), 10, (n, n_ext))
+        integrate(_gen_reflectance_coeff, 0, arcsin(n_ext/n), 10, (n, n_ext)), 
+        integrate(_gen_fluence_rate_coeff, 0, arcsin(n_ext/n), 10, (n, n_ext))
     )
 
 
@@ -107,8 +140,8 @@ def j0(x):
         p = _polevl(q, PP) / _polevl(q, PQ)
         q = _polevl(q, QP) / _p1evl(q, QQ)
         xn = x - _PIO4
-        p = p * math.cos(xn) - w * q * math.sin(xn)
-        return p * _SQ2OPI / math.sqrt(x)
+        p = p * cos(xn) - w * q * sin(xn)
+        return p * _SQ2OPI / sqrt(x)
     elif x >= 1e-5:
         z = x*x
         return (z - _DR1) * (z - _DR2) * _polevl(z, RP)/_p1evl(z, RQ)
@@ -132,13 +165,13 @@ def model_ss(rho, mua, musp, n, n_ext):
     z = 0
     z0 = 1 / (mua + musp)
     zb = 2 * D * imp
-    mu_eff = math.sqrt(3 * mua * (mua + musp))
+    mu_eff = sqrt(3 * mua * (mua + musp))
     r1_sq = (z - z0)**2 + rho**2
-    r1 = math.sqrt(r1_sq)
+    r1 = sqrt(r1_sq)
     r2_sq = (z + z0 + 2*zb)**2 + rho**2
-    r2 = math.sqrt(r2_sq)
-    flu_rate = 1/(4*math.pi*D)*(math.exp(-mu_eff*r1)/r1 - math.exp(-mu_eff*r2)/r2)
-    diff_refl = 1/(4*math.pi)*(z0*(mu_eff + 1/r1)*math.exp(-mu_eff*r1)/r1_sq + (z0 + 2*zb)*(mu_eff + 1/r2)*math.exp(-mu_eff*r2)/r2_sq)
+    r2 = sqrt(r2_sq)
+    flu_rate = 1/(4*math.pi*D)*(exp(-mu_eff*r1)/r1 - exp(-mu_eff*r2)/r2)
+    diff_refl = 1/(4*math.pi)*(z0*(mu_eff + 1/r1)*exp(-mu_eff*r1)/r1_sq + (z0 + 2*zb)*(mu_eff + 1/r2)*exp(-mu_eff*r2)/r2_sq)
     return flu_coeff * flu_rate + refl_coeff * diff_refl
 
 
@@ -162,14 +195,14 @@ def model_fd(rho, mua, musp, n, n_ext, freq, c):
     zb = 2 * D * imp
     v = c / n
     w = 2 * math.pi * freq
-    k_in = math.sqrt(1+(w/(mua*v))**2)
-    k = math.sqrt(3 / 2 * mua * (mua + musp)) * (math.sqrt(k_in+1) + 1j*math.sqrt(k_in-1))
+    k_in = sqrt(1+(w/(mua*v))**2)
+    k = sqrt(3 / 2 * mua * (mua + musp)) * (sqrt(k_in+1) + 1j*sqrt(k_in-1))
     r1_sq = (z - z0)**2 + rho**2
-    r1 = math.sqrt(r1_sq)
+    r1 = sqrt(r1_sq)
     r2_sq = (z + z0 + 2*zb)**2 + rho**2
-    r2 = math.sqrt(r2_sq)
-    flu_rate = 1/(4*math.pi*D)*(math.exp(-k*r1)/r1 - math.exp(-k*r2)/r2)
-    diff_refl = 1/(4*math.pi)*(z0*(k + 1/r1)*math.exp(-k*r1)/r1_sq + (z0 + 2*zb)*(k + 1/r2)*math.exp(-k*r2)/r2_sq)
+    r2 = sqrt(r2_sq)
+    flu_rate = 1/(4*math.pi*D)*(exp(-k*r1)/r1 - exp(-k*r2)/r2)
+    diff_refl = 1/(4*math.pi)*(z0*(k + 1/r1)*exp(-k*r1)/r1_sq + (z0 + 2*zb)*(k + 1/r2)*exp(-k*r2)/r2_sq)
     return flu_coeff * flu_rate + refl_coeff * diff_refl
 
 
@@ -194,8 +227,8 @@ def model_td(t, rho, mua, musp, n, n_ext, c):
     zb = 2 * imp * D
     r1_sq = (z - z0)**2 + rho**2
     r2_sq = (z + z0 + 2*zb)**2 + rho**2
-    reflectance = 0.5*t**(-5/2)*(4*np.pi*D*v)**(-3/2)*math.exp(-mua*v*t)*(z0*math.exp(-r1_sq/(4*D*v*t))+(z0+2*zb)*math.exp(-r2_sq/(4*D*v*t)))
-    fluence_rate = v*(4*math.pi*D*v*t)**(-3/2)*math.exp(-mua*v*t)*(math.exp(-(r1_sq/(4*D*v*t)))-math.exp(-(r2_sq/(4*D*v*t))))
+    reflectance = 0.5*t**(-5/2)*(4*np.pi*D*v)**(-3/2)*exp(-mua*v*t)*(z0*exp(-r1_sq/(4*D*v*t))+(z0+2*zb)*exp(-r2_sq/(4*D*v*t)))
+    fluence_rate = v*(4*math.pi*D*v*t)**(-3/2)*exp(-mua*v*t)*(exp(-(r1_sq/(4*D*v*t)))-exp(-(r2_sq/(4*D*v*t))))
     return flu_coeff*fluence_rate + refl_coeff*reflectance
 
 
@@ -221,11 +254,11 @@ def model_g2(tau, bfi, beta, mua, musp, wavelength, rho, first_tau_delay, n, n_e
     z0 = 1 / (mua + musp)
     zb = 2 * imp * D
     k0 = 2 * math.pi * n / wavelength
-    k_tau = math.sqrt(3 * mua * musp + musp**2 * k0**2 * 6 * bfi * tau)
-    k_norm = math.sqrt(3 * mua * musp + musp**2 * k0**2 * 6 * bfi * first_tau_delay)
-    r1 = math.sqrt(rho**2 + (z - z0)**2)
-    r2 = math.sqrt(rho**2 + (z + z0 + 2 * zb)**2)
-    g1 = (math.exp(-k_tau*r1)/r1 - math.exp(-k_tau*r2)/r2) / (math.exp(-k_norm*r1)/r1 - math.exp(-k_norm*r2)/r2)
+    k_tau = sqrt(3 * mua * musp + musp**2 * k0**2 * 6 * bfi * tau)
+    k_norm = sqrt(3 * mua * musp + musp**2 * k0**2 * 6 * bfi * first_tau_delay)
+    r1 = sqrt(rho**2 + (z - z0)**2)
+    r2 = sqrt(rho**2 + (z + z0 + 2 * zb)**2)
+    g1 = (exp(-k_tau*r1)/r1 - exp(-k_tau*r2)/r2) / (exp(-k_norm*r1)/r1 - exp(-k_norm*r2)/r2)
     return 1 + beta * g1 ** 2
 
 
@@ -233,24 +266,24 @@ def model_g2(tau, bfi, beta, mua, musp, wavelength, rho, first_tau_delay, n, n_e
 def _2_layer_phi(s, z, z0, zb, depths, D, alpha_args):
     l = depths[0]
     D1, D2 = D[0], D[1]
-    a1, a2 = math.sqrt(s**2 + alpha_args[0]), math.sqrt(s**2 + alpha_args[1])
-    return (2*math.exp(a1*(l + zb))*(a1*D1*math.cosh(a1*(l - z0)) + a2*D2*math.sinh(a1*(l - z0)))*math.sinh(a1*(z + zb)))/(a1*D1*(a2*D2*(-1 + math.exp(2*a1*(l + zb))) + a1*D1*(1 + math.exp(2*a1*(l + zb)))))
+    a1, a2 = sqrt(s**2 + alpha_args[0]), sqrt(s**2 + alpha_args[1])
+    return (2*exp(a1*(l + zb))*(a1*D1*cosh(a1*(l - z0)) + a2*D2*sinh(a1*(l - z0)))*sinh(a1*(z + zb)))/(a1*D1*(a2*D2*(-1 + exp(2*a1*(l + zb))) + a1*D1*(1 + exp(2*a1*(l + zb)))))
 
 
 @nb.cuda.jit(device=True)
 def _3_layer_phi(s, z, z0, zb, depths, D, alpha_args):
     l1, l2 = depths[0], depths[1]
     D1, D2, D3 = D[0], D[1], D[2]
-    a1, a2, a3 = math.sqrt(s**2 + alpha_args[0]), math.sqrt(s**2 + alpha_args[1]), math.sqrt(s**2 + alpha_args[2])
-    return ((((a1*D1*math.cosh(a1*(l1 - z0))*(a2*D2*math.cosh(a2*(l1 - l2)) - a3*D3*math.sinh(a2*(l1 - l2))) + a2*D2*(a3*D3*math.cosh(a2*(l1 - l2)) - a2*D2*math.sinh(a2*(l1 - l2)))*math.sinh(a1*(l1 - z0)))*math.sinh(a1*(z + zb)))/(-(math.sinh(a2*(l1 - l2))*(a1*a3*D1*D3*math.cosh(a1*(l1 + zb)) + a2**2*D2**2*math.sinh(a1*(l1 + zb)))) + a2*D2*math.cosh(a2*(l1 - l2))*(a1*D1*math.cosh(a1*(l1 + zb)) + a3*D3*math.sinh(a1*(l1 + zb)))))/(a1*D1))
+    a1, a2, a3 = sqrt(s**2 + alpha_args[0]), sqrt(s**2 + alpha_args[1]), sqrt(s**2 + alpha_args[2])
+    return ((((a1*D1*cosh(a1*(l1 - z0))*(a2*D2*cosh(a2*(l1 - l2)) - a3*D3*sinh(a2*(l1 - l2))) + a2*D2*(a3*D3*cosh(a2*(l1 - l2)) - a2*D2*sinh(a2*(l1 - l2)))*sinh(a1*(l1 - z0)))*sinh(a1*(z + zb)))/(-(sinh(a2*(l1 - l2))*(a1*a3*D1*D3*cosh(a1*(l1 + zb)) + a2**2*D2**2*sinh(a1*(l1 + zb)))) + a2*D2*cosh(a2*(l1 - l2))*(a1*D1*cosh(a1*(l1 + zb)) + a3*D3*sinh(a1*(l1 + zb)))))/(a1*D1))
 
 
 @nb.cuda.jit(device=True)
 def _4_layer_phi(s, z, z0, zb, depths, D, alpha_args):
     l1, l2, l3 = depths[0], depths[1], depths[2]
     D1, D2, D3, D4 = D[0], D[1], D[2], D[3]
-    a1, a2, a3, a4 = math.sqrt(s**2 + alpha_args[0]), math.sqrt(s**2 + alpha_args[1]), math.sqrt(s**2 + alpha_args[2]), math.sqrt(s**2 + alpha_args[3])
-    return (math.exp(-(a1*(z + z0)))*(-1 + math.exp(2*a1*(z + zb)))*(a1*D1*(math.exp(2*a1*l1) + math.exp(2*a1*z0))*(a3*D3*math.sinh(a2*(l1 - l2))*(-(a4*D4*math.cosh(a3*(l2 - l3))) + a3*D3*math.sinh(a3*(l2 - l3))) + a2*D2*math.cosh(a2*(l1 - l2))*(a3*D3*math.cosh(a3*(l2 - l3)) - a4*D4*math.sinh(a3*(l2 - l3)))) + a2*D2*(math.exp(2*a1*l1) - math.exp(2*a1*z0))*(a3*D3*math.cosh(a2*(l1 - l2))*(a4*D4*math.cosh(a3*(l2 - l3)) - a3*D3*math.sinh(a3*(l2 - l3))) + a2*D2*math.sinh(a2*(l1 - l2))*(-(a3*D3*math.cosh(a3*(l2 - l3))) + a4*D4*math.sinh(a3*(l2 - l3))))))/(2.*a1*D1*(a1*D1*(1 + math.exp(2*a1*(l1 + zb)))*(a3*D3*math.sinh(a2*(l1 - l2))*(-(a4*D4*math.cosh(a3*(l2 - l3))) + a3*D3*math.sinh(a3*(l2 - l3))) + a2*D2*math.cosh(a2*(l1 - l2))*(a3*D3*math.cosh(a3*(l2 - l3)) - a4*D4*math.sinh(a3*(l2 - l3)))) + a2*D2*(-1 + math.exp(2*a1*(l1 + zb)))*(a3*D3*math.cosh(a2*(l1 - l2))*(a4*D4*math.cosh(a3*(l2 - l3)) - a3*D3*math.sinh(a3*(l2 - l3))) + a2*D2*math.sinh(a2*(l1 - l2))*(-(a3*D3*math.cosh(a3*(l2 - l3))) + a4*D4*math.sinh(a3*(l2 - l3))))))
+    a1, a2, a3, a4 = sqrt(s**2 + alpha_args[0]), sqrt(s**2 + alpha_args[1]), sqrt(s**2 + alpha_args[2]), sqrt(s**2 + alpha_args[3])
+    return (exp(-(a1*(z + z0)))*(-1 + exp(2*a1*(z + zb)))*(a1*D1*(exp(2*a1*l1) + exp(2*a1*z0))*(a3*D3*sinh(a2*(l1 - l2))*(-(a4*D4*cosh(a3*(l2 - l3))) + a3*D3*sinh(a3*(l2 - l3))) + a2*D2*cosh(a2*(l1 - l2))*(a3*D3*cosh(a3*(l2 - l3)) - a4*D4*sinh(a3*(l2 - l3)))) + a2*D2*(exp(2*a1*l1) - exp(2*a1*z0))*(a3*D3*cosh(a2*(l1 - l2))*(a4*D4*cosh(a3*(l2 - l3)) - a3*D3*sinh(a3*(l2 - l3))) + a2*D2*sinh(a2*(l1 - l2))*(-(a3*D3*cosh(a3*(l2 - l3))) + a4*D4*sinh(a3*(l2 - l3))))))/(2.*a1*D1*(a1*D1*(1 + exp(2*a1*(l1 + zb)))*(a3*D3*sinh(a2*(l1 - l2))*(-(a4*D4*cosh(a3*(l2 - l3))) + a3*D3*sinh(a3*(l2 - l3))) + a2*D2*cosh(a2*(l1 - l2))*(a3*D3*cosh(a3*(l2 - l3)) - a4*D4*sinh(a3*(l2 - l3)))) + a2*D2*(-1 + exp(2*a1*(l1 + zb)))*(a3*D3*cosh(a2*(l1 - l2))*(a4*D4*cosh(a3*(l2 - l3)) - a3*D3*sinh(a3*(l2 - l3))) + a2*D2*sinh(a2*(l1 - l2))*(-(a3*D3*cosh(a3*(l2 - l3))) + a4*D4*sinh(a3*(l2 - l3))))))
 
 
 @nb.cuda.jit(device=True)

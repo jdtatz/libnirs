@@ -15,10 +15,6 @@ def integrate(func, a, b, divs=1, args=()):
     """Integrate 'func' w/ 'args' over the region (a, b). The region can subdived by 'divs' for better numerical accuracy"""
     skip = (b - a) / divs
     c_1 = skip / 2
-    # array method
-    #  c_2 = c_1 + np.arange(a, b, skip).reshape((-1, 1))
-    #  return c_1 * np.sum(func(c_1 * _x_kr21 + c_2, *args) * _w_kr21)
-    # scalar method
     c_2 = c_1 + a
     integrator = func(c_1 * _x_kr21[0] + c_2, *args) * _w_kr21[0]
     for i in range(1, _x_kr21.shape[0]):
