@@ -185,4 +185,4 @@ def cuda_model_nlayer_g2(rhos, taus, muas, musps, depths, BFi, wavelengths, n, n
     mua = muas[i]
     musp = musps[i]
     wavelength = wavelengths[i]
-    out[i] = model_nlayer_g2(rho, tau, mua, musp, depths, BFi, wavelength, n, n_ext, beta, tau_0, int_limit, int_divs, eps, out)
+    out[i] = model_nlayer_g2(rho, tau, mua, musp, depths, BFi, wavelength, n, n_ext, beta, tau_0, int_limit, int_divs, eps)
