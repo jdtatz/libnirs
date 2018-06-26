@@ -19,6 +19,7 @@ def cuda_model_ss(rhos, muas, musps, n, n_ext, out):
         musp := Reduced Scattering Coefficent [1/length]
         n := Media Index of Refraction []
         n_ext := External Index of Refraction []
+        out := Output Array
     """
     i = nb.cuda.grid(1)
     if i > out.shape[0]:
@@ -41,6 +42,7 @@ def cuda_model_fd(rhos, muas, musps, n, n_ext, freq, c, out):
         n_ext := External Index of Refraction []
         freq := Frequncy of Source [1/time]
         c := Speed of Light in vacuum [length/time]
+        out := Output Array
     """
     i = nb.cuda.grid(1)
     if i > out.shape[0]:
@@ -48,7 +50,7 @@ def cuda_model_fd(rhos, muas, musps, n, n_ext, freq, c, out):
     rho = rhos[i]
     mua = muas[i]
     musp = musps[i]
-    out[i] = model_fd(rho, mua, musp, n, n_ext)
+    out[i] = model_fd(rho, mua, musp, n, n_ext, freq, c)
 
 
 @nb.cuda.jit
@@ -63,6 +65,7 @@ def cuda_model_td(ts, rhos, muas, musps, n, n_ext, c, out):
         n := Media Index of Refraction []
         n_ext := External Index of Refraction []
         c := Speed of Light in vacuum [length/time]
+        out := Output Array
     """
     i = nb.cuda.grid(1)
     if i > out.shape[0]:
@@ -89,6 +92,7 @@ def cuda_model_g2(taus, bfi, beta, muas, musps, wavelengths, rhos, first_tau_del
         first_tau_delay := The first tau for normalization [time]
         n := Media Index of Refraction []
         n_ext := External Index of Refraction []
+        out := Output Array
     """
     i = nb.cuda.grid(1)
     if i > out.shape[0]:
@@ -117,8 +121,8 @@ def cuda_model_nlayer_ss(rhos, muas, musps, depths, n, n_ext, int_limit, int_div
         int_limit := Integration Limit [length]
         int_divs := Number of subregions to integrate over []
         eps := Epsilion for numerical diffrention [length]
+        out := Output Array
     """
-    nlayer = muas.shape[1]
     i = nb.cuda.grid(1)
     if i > out.shape[0]:
         return
@@ -144,8 +148,8 @@ def cuda_model_nlayer_fd(rhos, muas, musps, depths, freq, c, n, n_ext, int_limit
         int_limit := Integration Limit [length]
         int_divs := Number of subregions to integrate over []
         eps := Epsilion for numerical diffrention [length]
+        out := Output Array
     """
-    nlayer = muas.shape[1]
     i = nb.cuda.grid(1)
     if i > out.shape[0]:
         return
@@ -175,8 +179,8 @@ def cuda_model_nlayer_g2(rhos, taus, muas, musps, depths, BFi, wavelengths, n, n
         int_limit := Integration Limit [length]
         int_divs := Number of subregions to integrate over []
         eps := Epsilion for numerical diffrention [length]
+        out := Output Array
     """
-    nlayer = muas.shape[1]
     i = nb.cuda.grid(1)
     if i > out.shape[0]:
         return
