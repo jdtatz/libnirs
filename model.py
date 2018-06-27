@@ -1,6 +1,5 @@
-import numpy as np
+from numpy import pi, exp, sqrt
 from .utils import jit, integrate, gen_impedance, gen_coeffs
-from .overrides import pi, exp, sqrt, sin, cos, sinh, cosh, arcsin
 
 
 @jit
