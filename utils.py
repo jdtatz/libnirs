@@ -1,7 +1,7 @@
 import numpy as np
 import numba as nb
 from functools import partial
-from .overrides import pi, exp, sqrt, sin, cos, sinh, cosh, arcsin
+from numpy import sqrt, sin, cos, arcsin
 
 jit = partial(nb.jit, nopython=True, nogil=True)
 vectorize = nb.vectorize  # partial(nb.vectorize, nopython=True)

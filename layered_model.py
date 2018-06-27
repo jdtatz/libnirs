@@ -1,6 +1,6 @@
-import numpy as np
-from .utils import jit, vectorize, integrate, gen_coeffs
-from .overrides import pi, exp, sqrt, sin, cos, sinh, cosh, arcsin, j0
+from numpy import pi, exp, sqrt, sinh, cosh
+from scipy.special import j0
+from .utils import jit, integrate, gen_coeffs
 
 
 def gen_mathmatica_code(layer_count):

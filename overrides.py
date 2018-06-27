@@ -5,42 +5,36 @@ import numba as nb
 import numba.cuda
 import numba.cuda.cudaimpl
 import numba.cuda.cudadecl
-import numba.cuda.descriptor
-import numba.cuda.stubs
-
-pi = np.pi
+import scipy.special
 
 
-def _add_override(name, math_fn, cmath_fn, np_fn):
-    stub = type(name, (nb.cuda.stubs.Stub,), {'_description_': '<{}()>'.format(name)})
-    @nb.extending.lower_builtin(stub, nb.types.Any)
-    @nb.cuda.cudaimpl.lower(stub, nb.types.Any)
+def _add_override(np_fn, math_fn, cmath_fn=None):
+    cmath_fn = math_fn if cmath_fn is None else cmath_fn
+
+    @nb.cuda.cudaimpl.lower(np_fn, nb.types.Number)
     def lower_override(context, builder, sig, args):
-        if isinstance(sig.args[0], nb.types.Integer) or isinstance(sig.args[0], nb.types.Float):
-            fn = math_fn
-        elif isinstance(sig.args[0], nb.types.Complex):
+        if isinstance(sig.args[0], nb.types.Complex):
             fn = cmath_fn
         else:
-            fn = np_fn
+            fn = math_fn
         impl = context.get_function(fn, sig)
         return impl(builder, args)
-    @nb.typing.templates.infer
+
     @nb.cuda.cudadecl.intrinsic
     class OverrideIntrinsicTemplate(nb.typing.templates.AbstractTemplate):
-        key = stub
+        key = np_fn
         def generic(self, args, kws):
             return args[0](args[0])
-    nb.typing.templates.infer_global(stub, nb.types.Function(OverrideIntrinsicTemplate))
-    nb.cuda.cudadecl.intrinsic_global(stub, nb.types.Function(OverrideIntrinsicTemplate))
-    return stub
 
-exp = _add_override('exp', math.exp, cmath.exp, np.exp)
-sqrt = _add_override('sqrt', math.sqrt, cmath.sqrt, np.sqrt)
-sin = _add_override('sin', math.sin, cmath.sin, np.sin)
-cos = _add_override('cos', math.cos, cmath.cos, np.cos)
-sinh = _add_override('sinh', math.sinh, cmath.sinh, np.sinh)
-cosh = _add_override('cosh', math.cosh, cmath.cosh, np.cosh)
-arcsin = _add_override('arcsin', math.asin, cmath.asin, np.arcsin)
+    nb.cuda.cudadecl.intrinsic_global(np_fn, nb.types.Function(OverrideIntrinsicTemplate))
+
+_add_override(np.exp, math.exp, cmath.exp)
+_add_override(np.sqrt, math.sqrt, cmath.sqrt)
+_add_override(np.sin, math.sin, cmath.sin)
+_add_override(np.cos, math.cos, cmath.cos)
+_add_override(np.sinh, math.sinh, cmath.sinh)
+_add_override(np.cosh, math.cosh, cmath.cosh)
+_add_override(np.arcsin, math.asin, cmath.asin)
 
 
 _RP = (-4.79443220978201773821E9,1.95617491946556577543E12,-2.49248344360967716204E14,9.70862251047306323952E15)
@@ -80,8 +74,8 @@ def _cuda_j0(x):
         p = _polevl(q, _PP) / _polevl(q, _PQ)
         q = _polevl(q, _QP) / _p1evl(q, _QQ)
         xn = x - _PIO4
-        p = p * cos(xn) - w * q * sin(xn)
-        return p * _SQ2OPI / sqrt(x)
+        p = p * np.cos(xn) - w * q * np.sin(xn)
+        return p * _SQ2OPI / np.sqrt(x)
     elif x >= 1e-5:
         z = x*x
         return (z - _DR1) * (z - _DR2) * _polevl(z, _RP) / _p1evl(z, _RQ)
@@ -92,12 +86,8 @@ def _cuda_j0(x):
 _cpu_j0 = nb.vectorize(nopython=True)(_cuda_j0)
 
 
-class j0(nb.cuda.stubs.Stub):
-    _description_ = '<j0()>'
-
-
-@nb.extending.lower_builtin(j0, nb.types.Any)
-@nb.cuda.cudaimpl.lower(j0, nb.types.Any)
+@nb.extending.lower_builtin(scipy.special.j0, nb.types.Any)
+@nb.cuda.cudaimpl.lower(scipy.special.j0, nb.types.Any)
 def _lower_j0(context, builder, sig, args):
     if isinstance(context, nb.cuda.target.CUDATargetContext):
         func = _cuda_j0
@@ -109,10 +99,10 @@ def _lower_j0(context, builder, sig, args):
 @nb.typing.templates.infer
 @nb.cuda.cudadecl.intrinsic
 class _J0IntrinsicTemplate(nb.typing.templates.AbstractTemplate):
-    key = j0
+    key = scipy.special.j0
 
     def generic(self, args, kws):
         return args[0](args[0])
 
-nb.typing.templates.infer_global(j0, nb.types.Function(_J0IntrinsicTemplate))
-nb.cuda.cudadecl.intrinsic_global(j0, nb.types.Function(_J0IntrinsicTemplate))
+nb.typing.templates.infer_global(scipy.special.j0, nb.types.Function(_J0IntrinsicTemplate))
+nb.cuda.cudadecl.intrinsic_global(scipy.special.j0, nb.types.Function(_J0IntrinsicTemplate))
