@@ -1,5 +1,5 @@
 from numpy import pi, exp, sqrt
-from .utils import jit, integrate, gen_impedance, gen_coeffs
+from .utils import jit, gen_impedance, gen_coeffs
 
 
 @jit
