@@ -51,9 +51,9 @@ _PIO4 = .78539816339744830962
 
 @nb.jit(nopython=True)
 def _polevl(x, coef):
-    ans = coef[0]
-    for i in range(1, len(coef)):
-        ans = ans*x + coef[i]
+    ans = coef[0] * x + coef[1]
+    for i in range(2, len(coef)):
+        ans = ans * x + coef[i]
     return ans
 
 
@@ -65,7 +65,7 @@ def _p1evl(x, coef):
     return ans
 
 
-def _cuda_j0(x):
+def _scalar_j0(x):
     """Bessel function of the first kind of order 0. Adapted from "Cephes Mathematical Functions Library"."""
     x = abs(x)
     if x > 5:
@@ -82,19 +82,21 @@ def _cuda_j0(x):
     else:
         return 1 - x*x/4
 
+_vector_j0 = nb.vectorize(nopython=True)(_scalar_j0)
 
-_cpu_j0 = nb.vectorize(nopython=True)(_cuda_j0)
+
+@nb.cuda.cudaimpl.lower(scipy.special.j0, nb.types.Number)
+def _lower_cuda_j0(context, builder, sig, args):
+    res = context.compile_internal(builder, _scalar_j0, sig, args)
+    return nb.targets.imputils.impl_ret_untracked(context, builder, sig, res)
 
 
 @nb.extending.lower_builtin(scipy.special.j0, nb.types.Any)
-@nb.cuda.cudaimpl.lower(scipy.special.j0, nb.types.Any)
-def _lower_j0(context, builder, sig, args):
-    if isinstance(context, nb.cuda.target.CUDATargetContext):
-        func = _cuda_j0
-    else:
-        func = lambda x: _cpu_j0(x)
-    res = context.compile_internal(builder, func, sig, args)
-    return nb.targets.imputils.impl_ret_untracked(context, builder, sig, res)
+def _lower_cpu_j0(context, builder, sig, args):
+    _vector_j0.add(sig)
+    impl = context.get_function(_vector_j0, sig)
+    return impl(builder, args)
+
 
 @nb.typing.templates.infer
 @nb.cuda.cudadecl.intrinsic

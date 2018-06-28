@@ -1,5 +1,6 @@
 from numpy import pi, exp, sqrt, sinh, cosh
 from scipy.special import j0
+# from .overrides import _vector_j0 as j0
 from .utils import jit, integrate, gen_coeffs
 
 

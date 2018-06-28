@@ -1,7 +1,6 @@
 import os
 os.environ['NUMBAPRO_NVVM'] = '/usr/local/cuda/nvvm/lib64/libnvvm.so'
 os.environ['NUMBAPRO_LIBDEVICE'] = '/usr/local/cuda/nvvm/libdevice/'
-from .utils import jit, integrate, gen_coeffs
 from .model import model_ss, model_fd, model_td, model_g2
 from .layered_model import model_nlayer_ss, model_nlayer_fd, model_nlayer_g2
 import numpy as np
