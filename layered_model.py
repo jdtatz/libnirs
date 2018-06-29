@@ -2,6 +2,7 @@ from numpy import pi, exp, sqrt, sinh, cosh
 from scipy.special import j0
 # from .overrides import _vector_j0 as j0
 from .utils import jit, integrate, gen_coeffs
+from .model import model_ss, model_fd, model_g2
 
 
 def gen_mathmatica_code(layer_count):
@@ -85,6 +86,8 @@ def model_nlayer_ss(rho, mua, musp, depths, n, n_ext=1, int_limit=10, int_divs=1
         alpha_args4 = mua[0] / D1, mua[1] / D4[1], mua[2] / D4[2], mua[3] / D4[3]
         p_0 = integrate(_phi_integrator, 0, int_limit, int_divs, (0, rho, z0, zb, depths, D4, _4_layer_phi, alpha_args4)) / (2*pi)
         p_eps = integrate(_phi_integrator, 0, int_limit, int_divs, (eps, rho, z0, zb, depths, D4, _4_layer_phi, alpha_args4)) / (2*pi)
+    else:
+        return model_ss(rho, mua[0], musp[0], n, n_ext)
     dp = (p_eps - p_0) / eps
     return flu_coeff*p_0 + refl_coeff*D1*dp
 
@@ -129,6 +132,8 @@ def model_nlayer_fd(rho, mua, musp, depths, freq, c, n, n_ext=1, int_limit=10, i
         alpha_args4 = (wave + mua[0]) / D1, (wave + mua[1]) / D4[1], (wave + mua[2]) / D4[2], (wave + mua[3]) / D4[3]
         p_0 = integrate(_phi_integrator, 0, int_limit, int_divs, (0, rho, z0, zb, depths, D4, _4_layer_phi, alpha_args4)) / (2*pi)
         p_eps = integrate(_phi_integrator, 0, int_limit, int_divs, (eps, rho, z0, zb, depths, D4, _4_layer_phi, alpha_args4)) / (2*pi)
+    else:
+        return model_fd(rho, mua[0], musp[0], n, n_ext, freq, c)
     dp = (p_eps - p_0) / eps
     return flu_coeff*p_0 + refl_coeff*D1*dp
 
@@ -184,6 +189,8 @@ def model_nlayer_g2(rho, tau, mua, musp, depths, BFi, wavelength, n, n_ext=1, be
         p_0_norm = integrate(_phi_integrator, 0, int_limit, int_divs, (0, rho, z0, zb, depths, D4, _4_layer_phi, alpha_norm_args4)) / (2*pi)
         p_eps = integrate(_phi_integrator, 0, int_limit, int_divs, (eps, rho, z0, zb, depths, D4, _4_layer_phi, alpha_args4)) / (2*pi)
         p_eps_norm = integrate(_phi_integrator, 0, int_limit, int_divs, (eps, rho, z0, zb, depths, D4, _4_layer_phi, alpha_norm_args4)) / (2*pi)
+    else:
+        return model_g2(tau, BFi[0], beta, mua[0], musp[0], wavelength, rho, tau_0, n, n_ext)
     dp = (p_eps - p_0) / eps
     dp_norm = (p_eps_norm - p_0_norm) / eps
     g1 = (flu_coeff*p_0 + refl_coeff*D1*dp) / (flu_coeff*p_0_norm + refl_coeff*D1*dp_norm)
