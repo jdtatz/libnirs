@@ -113,7 +113,7 @@ base_tissue_properties = {
 
 base_mcx_cfg = {
     'autopilot': True,
-    'gpuid': 0
+    'gpuid': 0,
     'nphoton': 3e8,
     'maxdetphoton': 1.5e8,
     'tstart': 0,
