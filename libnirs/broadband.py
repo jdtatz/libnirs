@@ -8,18 +8,18 @@ from .utils import jit
 def analyze_mcx(detp, prop, tof_domain, tau, wavelength, BFi, freq, ndet, ntof, nmedia, pcounts, paths, phiTD, phiFD, g1_top, phiDist):
     c = 2.998e+11  # speed of light in mm / s
     detBins = detp[0].astype(np.int32) - 1
-    layerdist = prop[1:, 3] * detp[2:(2+nmedia)].T
-    totaldist = prop[1:, 3] @ detp[2:(2+nmedia)]
+    layerdist = prop[1:, 3] * detp[1:(1+nmedia)].T
+    totaldist = prop[1:, 3] @ detp[1:(1+nmedia)]
     tofBins = np.minimum(np.digitize(totaldist, c * tof_domain), ntof) - 1
     distBins = np.minimum(np.digitize(layerdist, c * tof_domain), ntof) - 1
-    path = -prop[1:, 0] @ detp[2:(2+nmedia)]
+    path = -prop[1:, 0] @ detp[1:(1+nmedia)]
     phis = np.exp(path)
-    fds = np.exp((-prop[1:, 0] - 2j * np.pi * freq * prop[1:, 3] / c).astype(np.complex64) @ detp[2:(2+nmedia)].astype(np.complex64))
-    prep = (-2*(2*np.pi*prop[1:, 3]/(wavelength*1e-6))**2*BFi).astype(np.float32) @ detp[(2+nmedia):(2+2*nmedia)]
+    fds = np.exp((-prop[1:, 0] - 2j * np.pi * freq * prop[1:, 3] / c).astype(np.complex64) @ detp[1:(1+nmedia)].astype(np.complex64))
+    prep = (-2*(2*np.pi*prop[1:, 3]/(wavelength*1e-6))**2*BFi).astype(np.float32) @ detp[(1+nmedia):(1+2*nmedia)]
     big = np.exp(prep * tau.reshape((len(tau), 1)) + path)
     for i in range(len(detBins)):
         pcounts[detBins[i], tofBins[i]] += 1
-        paths[detBins[i], tofBins[i]] += detp[2:(2+nmedia), i]
+        paths[detBins[i], tofBins[i]] += detp[1:(1+nmedia), i]
         phiFD[detBins[i]] += fds[i]
         phiTD[detBins[i], tofBins[i]] += phis[i]
         for l in range(nmedia):
