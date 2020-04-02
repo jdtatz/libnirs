@@ -72,6 +72,7 @@ def _n_layer_refl(s, z, z0, zb, ls, muas, musps, alphas, alpha_args, flu_coeff, 
 
 @jit
 def _refl_integrator(s, z, rho, z0, zb, ls, muas, musps, alphas, alpha_args, flu_coeff, refl_coeff):
+    """Inverse HankelTransform"""
     return s*j0(s*rho)*_n_layer_refl(s, z, z0, zb, ls, muas, musps, alphas, alpha_args, flu_coeff, refl_coeff)
 
 
