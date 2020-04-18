@@ -1,0 +1,79 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb}
+\begin{document}
+
+Start with general steady-state diffusion equations with boundry conditions
+\begin{align*}
+D_1 \Delta \Phi_1(\mathbf{r}) - \mu_{a,1}\Phi_1(\mathbf{r}) &= -\delta(x, y, z - z_0), & z \le l_1 \\
+D_2 \Delta \Phi_2(\mathbf{r}) - \mu_{a,2}\Phi_2(\mathbf{r}) &= 0, & l_1 < z \le l_2 \\
+\vdots \\
+D_i \Delta \Phi_i(\mathbf{r}) - \mu_{a,i}\Phi_i(\mathbf{r}) &= 0, & l_{i-1} < z \le l_i \\
+\vdots \\
+D_n \Delta \Phi_n(\mathbf{r}) - \mu_{a,n}\Phi_n(\mathbf{r}) &= 0, & l_{n-1} < z \\
+D_i &= \frac{1}{3(\mu_{a,i} + \mu^{\prime}_{s,i})} \\
+\Phi_1(x, y, -z_b) &= 0 \\
+\Phi_n(x, y, \infty) &= 0 \\
+\Phi_i(x, y, l_i) &= \Phi_{i+1}(x, y, l_i) \\
+D_i \partial_z \Phi_i(x, y, l_i) &= D_{i+1} \partial_z \Phi_{i+1}(x, y, l_i)
+\end{align*}
+Now by assuming radial symmetry and by applying zeroth-order Hankel Transform.
+\begin{align*}
+x, y, z &\rightarrow \rho, \psi, z \\
+\Delta = \partial_x + \partial_y + \partial_z &\rightarrow \Delta = \frac{1}{\rho}\partial_\rho(\rho \partial_\rho) 
+ + \frac{1}{\rho^2}\partial^2_\psi + \partial^2_z \\
+\partial_\psi \Phi_i(\mathbf{r}) = 0 &\rightarrow \Phi_i(\mathbf{r}) = \Phi_i(\rho, z) \\
+\mathcal{H}_\rho\{{\Phi_i(\rho, z)}\}(s) &= \phi_i(s, z) \\
+\mathcal{H}_{\rho, 0}\{{\Delta\Phi_i(\rho, z)}\}(s) &= (\partial^2_z - s^2)\phi_i(s, z)
+\end{align*}
+The PDEs then become solvable ODEs.
+\begin{align*}
+d^2_z\phi_1(s, z) - \alpha_1^2\phi_1(s, z) &= -\frac{1}{D_1}\delta(z - z_0), & z \le l_1 \\
+d^2_z\phi_i(s, z) - \alpha_i^2\phi_i(s, z) &= 0, & l_{i-1} < z \le l_i \\
+d^2_z\phi_n(s, z) - \alpha_n^2\phi_n(s, z) &= 0, & l_{n-1} < z \\
+\alpha_i^2 &= s^2 + \frac{\mu_{a,i}}{D_i} \\
+\phi_1(s, -z_b) &= 0 \\
+\phi_n(s, \infty) &= 0 \\
+\phi_i(s, l_i) &= \phi_{i+1}(s, l_i) \\
+D_i \partial_z \phi_i(s, l_i) &= D_{i+1} \partial_z \phi_{i+1}(s, l_i)
+\end{align*}
+The General solutions along with the extrapolated-boundry condition and the semi-infinite media condition.
+\begin{align*}
+\phi_1(s, z) &= 2 A_1 e^{-\alpha_1 z_b} \sinh(\alpha_1(zb + z)) + \theta(z-z_0)\frac{\sinh(\alpha_1(z-z_0))}{\alpha_1 D_1}\\
+\phi_i(s, z) &= A_i e^{\alpha_i z} + B_i e^{-\alpha_i z} \\
+\phi_n(s, z) &= B_n e^{-\alpha_n z} \\
+\end{align*}
+Which after applying the inter-layer boundry conditions gives a linear system of $2(n-1)$ equations for the 
+$2(n-1)$ constants $A_i$ and $B_i$.
+\begin{align*}
+2 A_1 e^{-\alpha_1 z_b} \sinh(\alpha_1(zb + l_1)) - \frac{\sinh(\alpha_1(l_1-z_0))}{\alpha_1 D_1} &=
+A_2 e^{\alpha_2 l_1} + B_2 e^{-\alpha_2 l_1} \\
+2 \alpha_1 D_1 A_1 e^{-\alpha_1 z_b} \cosh(\alpha_1(zb + l_1)) - \cosh(\alpha_1(l_1-z_0)) &=
+A_2 \alpha_2 D_2 e^{\alpha_2 l_1} - B_2 \alpha_2 D_2 e^{-\alpha_2 l_1} \\
+\vdots \\
+A_i e^{\alpha_i l_i} + B_i e^{-\alpha_i l_i} &= A_{i+1} e^{\alpha_{i+1} l_i} + B_{i+1} e^{-\alpha_{i+1} l_i} \\
+A_i \alpha_i D_i e^{\alpha_i l_i} - B_i \alpha_i D_i e^{-\alpha_i l_i} &= A_{i+1} \alpha_{i+1} D_{i+1} e^{\alpha_{i+1} l_i} - \alpha_{i+1} D_{i+1} B_{i+1} e^{-\alpha_{i+1} l_i} \\
+\vdots \\
+A_{n-1} e^{\alpha_{n-1} l_{n-1}} + B_{n-1} e^{-\alpha_{n-1} l_{n-1}} &= B_n e^{-\alpha_n l_{n-1}} \\
+A_{n-1} \alpha_{n-1} D_{n-1} e^{\alpha_{n-1} l_{n-1}} - B_{n-1} \alpha_{n-1} D_{n-1} e^{-\alpha_{n-1} l_{n-1}} &= - \alpha_n D_n B_n e^{-\alpha_n l_{n-1}}
+\end{align*}
+Then through recursive subsition it admits a recurisve solution
+\begin{align*}
+k_{n-1} &= \frac{(\alpha_{n-1}D_{n-1}-\alpha_n D_n)e^{-l_{n-1}(\alpha_{n-1} + \alpha_n)}}{(\alpha_{n-1}D_{n-1}+\alpha_n D_n)e^{l_{n-1}(\alpha_{n-1} - \alpha_n)}} \\
+k_i &= \frac{
+(\alpha_i D_i + \alpha_{i+1} D_{i+1})e^{-l_i(\alpha_i - \alpha_{i+1})} k +
+(\alpha_i D_i - \alpha_{i+1} D_{i+1})e^{-l_i(\alpha_i + \alpha_{i+1})}
+}{
+(\alpha_i D_i - \alpha_{i+1} D_{i+1})e^{l_i(\alpha_i + \alpha_{i+1})} k +
+(\alpha_i D_i + \alpha_{i+1} D_{i+1})e^{l_i(\alpha_i - \alpha_{i+1})}} \\
+A_1 &= \frac{
+e^{\alpha_1 z_b} (\alpha_1 D_1 (1 + e^{2 l_1 \alpha_2} k_2) \cosh(\alpha_1 (l_1 - z_0)) +
+    \alpha_2 D_2 (1 - e^{2 l_1 \alpha_2} k_2) \sinh(\alpha_1 (l_1 - z_0)))
+}{
+2 \alpha_1 D_1 (\alpha_1 D_1 (1 + e^{2 l_1 \alpha_2} k_2) \cosh(\alpha_1 (l_1 + z_b)) +
+    \alpha_2 D_2 (1 - e^{2 l_1 \alpha_2} k_2) \sinh(\alpha_1 (l_1 + z_b)))
+} \\
+\Phi_1 &= \mathcal{H}^{-1}_s\{{\phi_1(s, z)}\}(\rho) \\
+&= \mathcal{H}^{-1}_s\{{2 A_1 e^{-\alpha_1 z_b} \sinh(\alpha_1(zb + z)) + \theta(z-z_0)\frac{\sinh(\alpha_1(z-z_0))}{\alpha_1 D_1}}\}(\rho)
+\end{align*}
+\end{document}
