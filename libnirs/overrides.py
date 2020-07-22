@@ -20,13 +20,14 @@ def _add_override(np_fn, math_fn, cmath_fn=None):
         impl = context.get_function(fn, sig)
         return impl(builder, args)
 
-    @nb.cuda.cudadecl.intrinsic
-    class OverrideIntrinsicTemplate(nb.typing.templates.AbstractTemplate):
+    @nb.cuda.cudadecl.registry.register
+    class OverrideIntrinsicTemplate(nb.core.typing.templates.AbstractTemplate):
         key = np_fn
         def generic(self, args, kws):
             return args[0](args[0])
 
-    nb.cuda.cudadecl.intrinsic_global(np_fn, nb.types.Function(OverrideIntrinsicTemplate))
+    nb.cuda.cudadecl.registry.register_global(np_fn, nb.types.Function(OverrideIntrinsicTemplate))
+
 
 _add_override(np.exp, math.exp, cmath.exp)
 _add_override(np.sqrt, math.sqrt, cmath.sqrt)
@@ -35,7 +36,6 @@ _add_override(np.cos, math.cos, cmath.cos)
 _add_override(np.sinh, math.sinh, cmath.sinh)
 _add_override(np.cosh, math.cosh, cmath.cosh)
 _add_override(np.arcsin, math.asin, cmath.asin)
-
 
 _RP = (-4.79443220978201773821E9,1.95617491946556577543E12,-2.49248344360967716204E14,9.70862251047306323952E15)
 _RQ = (4.99563147152651017219E2,1.73785401676374683123E5,4.84409658339962045305E7,1.11855537045356834862E10,2.11277520115489217587E12,3.10518229857422583814E14,3.18121955943204943306E16,1.71086294081043136091E18)
@@ -98,13 +98,13 @@ def _lower_cpu_j0(context, builder, sig, args):
     return impl(builder, args)
 
 
-@nb.typing.templates.infer
-@nb.cuda.cudadecl.intrinsic
-class _J0IntrinsicTemplate(nb.typing.templates.AbstractTemplate):
+@nb.core.typing.templates.infer
+@nb.cuda.cudadecl.registry.register
+class _J0IntrinsicTemplate(nb.core.typing.templates.AbstractTemplate):
     key = scipy.special.j0
 
     def generic(self, args, kws):
         return args[0](args[0])
 
-nb.typing.templates.infer_global(scipy.special.j0, nb.types.Function(_J0IntrinsicTemplate))
-nb.cuda.cudadecl.intrinsic_global(scipy.special.j0, nb.types.Function(_J0IntrinsicTemplate))
+nb.core.typing.templates.infer_global(scipy.special.j0, nb.types.Function(_J0IntrinsicTemplate))
+nb.cuda.cudadecl.registry.register_global(scipy.special.j0, nb.types.Function(_J0IntrinsicTemplate))
