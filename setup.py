@@ -1,11 +1,12 @@
+#!/usr/bin/env python3
 from setuptools import setup
 
 setup(
     name='libnirs',
-    version='0.0.1',
+    version='0.1.1',
     description='Library for NIRS analysis',
-    author='J Tatz',
-    author_email='tatz.j@hsuky.neu.edu',
+    author='Julia Tatz',
+    author_email='tatz.j@northeastern.edu',
     python_requires='>=3.5',
     classifiers=[
         'Development Status :: 3 - Alpha',

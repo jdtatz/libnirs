@@ -11,13 +11,29 @@ memory allocation needed for storing the precumputed values isn't allowed
 for the cuda target.
 """
 
+"""
+d[i_]:=Indexed[\[ScriptCapitalD],i]
+a[i_]:=Sqrt[s^2+Indexed[\[Beta],i]/d[i]](*Indexed[\[Alpha],i]*)
+l[i_]:=Indexed[\[ScriptL],i]
+z0=Subscript[z,0];
+zb=Subscript[z,b];
+$Assumptions=z0>0&&zb>0;
+kn[1,n_]:=(a[n-1]d[n-1]-a[n]d[n])Exp[-l[n-1](a[n-1]+a[n])]
+kd[1,n_]:=(a[n-1]d[n-1]+a[n]d[n])Exp[+l[n-1](a[n-1]-a[n])]
+kn[i_,n_]:=(a[n-i]d[n-i]+a[n-i+1]d[n-i+1])Exp[-l[n-i](a[n-i]-a[n-i+1])]kn[i-1,n]+(a[n-i]d[n-i]-a[n-i+1]d[n-i+1])Exp[-l[n-i](a[n-i]+a[n-i+1])]kd[i-1,n]
+kd[i_,n_]:=(a[n-i]d[n-i]+a[n-i+1]d[n-i+1])Exp[+l[n-i](a[n-i]-a[n-i+1])]kn[i-1,n]+(a[n-i]d[n-i]-a[n-i+1]d[n-i+1])Exp[-l[n-i](a[n-i]+a[n-i+1])]kd[i-1,n]
+k[i_,n_]:=kn[n-i+1,n]/kd[n-i+1,n]
+coeff[n_]:=Exp[a[1]zb](a[1]d[1](1+Exp[2 l[1]a[2]]k[2,n])Cosh[a[1](l[1]-z0)]+a[2]d[2](1-Exp[2 l[1]a[2]]k[2,n])Sinh[a[1](l[1]-z0)]) / (2 a[1]d[1](a[1]d[1](1+Exp[2 l[1]a[2]]k[2,n])Cosh[a[1](l[1]+zb)]+a[2]d[2](1-Exp[2 l[1]a[2]]k[2,n])Sinh[a[1](l[1]+zb)]) )
+phi1[n_,z_]:=2 coeff[n]Exp[-a[1]zb]Sinh[a[1](zb+z)](*+HeavisideTheta[z-z0]Sinh[a[1](z-z0)]/(a[1]d[1])*)
+"""
+
 @jit
 def _n_layer_refl(s, z, z0, zb, ls, muas, musps, alphas, alpha_args, flu_coeff, refl_coeff):
     n = len(muas)
-    
+
     def ds(i):
         return 1 / (3 * (muas[i] + musps[i]))
-    
+
     d2 = ds(n-1)
     d1 = ds(n-2)
     alpha2 = alphas(s, n-1, d2, *alpha_args)
@@ -31,7 +47,7 @@ def _n_layer_refl(s, z, z0, zb, ls, muas, musps, alphas, alpha_args, flu_coeff, 
         phi = coeff * sinh(alpha1 * (z + zb)) / alpha1
         dz_phi = coeff * cosh(alpha1 * (z + zb))
         return flu_coeff * phi + refl_coeff * d1 * dz_phi
-    
+
     k_num = (alpha1 * d1 - alpha2 * d2) * exp(-ls[-1] * (alpha1 + alpha2))
     k_dem = (alpha1 * d1 + alpha2 * d2) * exp( ls[-1] * (alpha1 - alpha2))
 
@@ -45,7 +61,7 @@ def _n_layer_refl(s, z, z0, zb, ls, muas, musps, alphas, alpha_args, flu_coeff, 
         kba = (adi - adn) * exp( ls[i] * (alpha1 + alpha2))
         kbb = (adi + adn) * exp( ls[i] * (alpha1 - alpha2))
         k_num, k_dem = kaa * k_num + kab * k_dem, kba * k_num + kbb * k_dem
-        
+
         d1, d2 = ds(i-1), d1
         alpha1, alpha2 = alphas(s, i - 1, d1, *alpha_args), alpha1
     l1 = ls[0]
@@ -99,6 +115,7 @@ def model_nlayer_ss(rho, mua, musp, depths, n, n_ext=1, int_limit=10, int_divs=1
     imp, refl_coeff, flu_coeff = gen_coeffs(n, n_ext)
     D1 = 1 / (3 * (mua[0] + musp[0]))
     z0 = 3*D1
+    assert depths[0] >= z0
     zb = 2*D1*imp
     alpha_args = (mua,)
     return integrate(_refl_integrator, 0, int_limit, int_divs, (0, rho, z0, zb, depths, mua, musp, _ss_alphas, alpha_args, flu_coeff, refl_coeff)) / (2*pi)
@@ -129,6 +146,7 @@ def model_nlayer_fd(rho, mua, musp, depths, freq, c, n, n_ext=1, int_limit=10, i
     imp, refl_coeff, flu_coeff = gen_coeffs(n, n_ext)
     D1 = 1 / (3 * (mua[0] + musp[0]))
     z0 = 3*D1
+    assert depths[0] >= z0
     zb = 2*D1*imp
     w = 2*pi*freq
     v = c / n
@@ -166,6 +184,7 @@ def model_nlayer_g2(rho, tau, mua, musp, depths, BFi, wavelength, n, n_ext=1, be
     imp, refl_coeff, flu_coeff = gen_coeffs(n, n_ext)
     D1 = 1 / (3 * (mua[0] + musp[0]))
     z0 = 3*D1
+    assert depths[0] >= z0
     zb = 2*D1*imp
     k0 = 2 * pi * n / wavelength
     alpha_args = mua, musp, k0, BFi, tau
