@@ -1,4 +1,3 @@
-import os
 from .model import model_ss, model_fd, model_td, model_g2
 from .layered_model import model_nlayer_ss, model_nlayer_fd, model_nlayer_g2
 import numpy as np
