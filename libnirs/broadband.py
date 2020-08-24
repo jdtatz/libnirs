@@ -1,4 +1,5 @@
 import numpy as np
+import xarray as xr
 from pymcx import MCX, SaveFlags, SrcType, DetectedPhotons
 from multiprocessing import Process, Queue, Manager
 from .utils import jit
@@ -6,7 +7,7 @@ from .extinction_coeffs import get_extinction_coeffs
 
 
 @jit(parallel=True)
-def analyze_mcx(detp, prop, tof_domain, tau, wavelength, BFi, freq, ndet, ntof, nmedia, pcounts, paths, phiTD, phiFD, g1_top, phiDist):
+def analyze_mcx(detp, prop, tof_domain, tau, wavelength, BFi, freq, ntof, nmedia, pcounts, phiTD, phiFD, g1_top, phiDist):
     c = 2.998e+11  # speed of light in mm / s
     detBins = detp.detector_id.astype(np.int32) - 1
     layerdist = prop[1:, 3] * detp.partial_path.T
@@ -20,7 +21,6 @@ def analyze_mcx(detp, prop, tof_domain, tau, wavelength, BFi, freq, ndet, ntof, 
     big = np.exp(prep * tau.reshape((len(tau), 1)) + path)
     for i in range(len(detBins)):
         pcounts[detBins[i], tofBins[i]] += 1
-        paths[detBins[i], tofBins[i]] += detp.partial_path[:, i]
         phiFD[detBins[i]] += fds[i]
         phiTD[detBins[i], tofBins[i]] += phis[i]
         for l in range(nmedia):
@@ -33,7 +33,6 @@ def run_mcx(cfg, run_count, tof_domain, tau, wavelength, BFi, freq, fslicer):
     ndet, ntof, nmedia = len(cfg.detpos), len(tof_domain) - 1, len(cfg.prop) - 1
     phiTD = np.zeros((ndet, ntof), np.float64)
     phiFD = np.zeros(ndet, np.complex128)
-    paths = np.zeros((ndet, ntof, nmedia), np.float64)
     pcounts = np.zeros((ndet, ntof), np.int64)
     g1_top = np.zeros((ndet, len(tau)), np.float64)
     phiDist = np.zeros((ndet, ntof, nmedia), np.float64)
@@ -48,47 +47,28 @@ def run_mcx(cfg, run_count, tof_domain, tau, wavelength, BFi, freq, fslicer):
         detp = cfg.detphoton
         if cfg.unitinmm != 1:
             detp.partial_path[()] *= cfg.unitinmm  # ppath to mm from grid unit
-        analyze_mcx(detp, cfg.prop, tof_domain, tau, wavelength, BFi, freq, ndet, ntof, nmedia, pcounts, paths, phiTD, phiFD, g1_top, phiDist)
+        analyze_mcx(detp, cfg.prop, tof_domain, tau, wavelength, BFi, freq, ntof, nmedia, pcounts, phiTD, phiFD, g1_top, phiDist)
         fslice += cfg.fluence[fslicer]
         del detp
     fslice /= run_count
-    paths /= pcounts[:, :, np.newaxis]
     g1 = g1_top / np.sum(phiTD, axis=1)[:, np.newaxis]
     phiDist /= np.sum(phiTD, axis=1)[:, np.newaxis, np.newaxis]
-    return {'wavelength': wavelength, 'Photons': pcounts, 'Paths': paths, 'PhiTD': phiTD, 'PhiFD': phiFD, 'PhiDist': phiDist, 'Seeds': seeds, 'Slice': fslice, 'g1': g1}
-
-
-# def run_broadband_thread(filename, init_cfg, wavelength_queue, create_prop, gpuid, results, run_count, tof_domain, tau, BFi, freq, fslicer):
-#     cfg = MCX(**init_cfg._config, gpuid=gpuid)
-#     print('start', filename, gpuid)
-#     while True:
-#         wavelength = wavelength_queue.get()
-#         if wavelength is None:
-#             break
-#         print(filename, wavelength, gpuid)
-#         cfg.prop = create_prop(wavelength)
-#         results[wavelength] = run_many(cfg, run_count, tof_domain, tau, wavelength, BFi, freq, fslicer)
-#
-#
-# def run_threaded_broadband(gpu_count, filename, init_cfg, waves, create_prop, run_count, tof_domain, tau, BFi, freq, fslicer):
-#     with Manager() as manager:
-#         results = manager.dict()
-#         wavelength_queue = Queue()
-#         procs = []
-#         for w in waves:
-#             wavelength_queue.put(w)
-#         for i in range(1, 1 + gpu_count):
-#             wavelength_queue.put(None)
-#             procs.append(Process(target=run_broadband_thread, args=(filename, init_cfg, wavelength_queue, create_prop, i, results, run_count, tof_domain, tau, BFi, freq, fslicer)))
-#         for p in procs:
-#             p.start()
-#         for p in procs:
-#             p.join()
-#         results = {**results}
-#     print('done')
-#     keys = 'wavelength', 'Photons', 'Paths', 'PhiTD', 'PhiFD', 'PhiDist', 'Seeds', 'Slice', 'g1'
-#     ws = sorted(list(results.keys()))
-#     np.savez_compressed(filename, init_cfg=init_cfg, **{key: np.stack([results[w][key] for w in ws]) for key in keys})
+    return xr.Dataset(
+        {
+            "seeds": (["runs"], seeds),
+            "Photons": (["detector", "time"], pcounts),
+            "PhiTD": (["detector", "time"], phiTD),
+            "PhiFD": (["detector"], phiFD),
+            "PhiDist": (["detector", "time", "layer"], phiDist),
+            "g1": (["detector", "tau"], g1),
+            "fluence": (["x", "y", "z", "time"], fslice),
+        },
+        coords={
+            "wavelength": ([], wavelength, {"units": "nanometer"}),
+            "time": (["time"], (tof_domain[:-1] + tof_domain[1:]) / 2, {"units": "second"}),
+            "tau": (["tau"], tau, {"units": "second"}),
+        }
+    )
 
 
 def create_props(layers, lprops, wavelen):

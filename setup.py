@@ -3,7 +3,7 @@ from setuptools import setup
 
 setup(
     name='libnirs',
-    version='0.1.1',
+    version='0.2',
     description='Library for NIRS analysis',
     author='Julia Tatz',
     author_email='tatz.j@northeastern.edu',
@@ -20,7 +20,8 @@ setup(
     install_requires=[
         'numpy',
         'scipy',
-        'numba'
+        'numba',
+        'xarray',
     ],
     package_data={
         'libnirs': ['extc.npz'],
