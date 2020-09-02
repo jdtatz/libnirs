@@ -1,13 +1,13 @@
 import numpy as np
 import xarray as xr
+from pint import get_application_registry
 from pymcx import MCX, SaveFlags, SrcType, DetectedPhotons
-from multiprocessing import Process, Queue, Manager
 from .utils import jit
 from .extinction_coeffs import get_extinction_coeffs
 
 
 @jit(parallel=True)
-def analyze_mcx(detp, prop, tof_domain, tau, wavelength, BFi, freq, ntof, nmedia, pcounts, phiTD, phiFD, g1_top, phiDist):
+def analyze_mcx(detp, prop, tof_domain, tau, wavelength, BFi, freq, ntof, nmedia, pcounts, phiTD, phiPhase, g1_top, phiDist):
     c = 2.998e+11  # speed of light in mm / s
     detBins = detp.detector_id.astype(np.int32) - 1
     layerdist = prop[1:, 3] * detp.partial_path.T
@@ -16,23 +16,25 @@ def analyze_mcx(detp, prop, tof_domain, tau, wavelength, BFi, freq, ntof, nmedia
     distBins = np.minimum(np.digitize(layerdist, c * tof_domain), ntof) - 1
     path = -prop[1:, 0] @ detp.partial_path
     phis = np.exp(path)
-    fds = np.exp((-prop[1:, 0] - 2j * np.pi * freq * prop[1:, 3] / c).astype(np.complex64) @ detp.partial_path.astype(np.complex64))
+    omega_wavelength = -2 * np.pi * freq / c
     prep = (-2*(2*np.pi*prop[1:, 3]/(wavelength*1e-6))**2*BFi).astype(np.float32) @ detp.momentum
     big = np.exp(prep * tau.reshape((len(tau), 1)) + path)
     for i in range(len(detBins)):
         pcounts[detBins[i], tofBins[i]] += 1
-        phiFD[detBins[i]] += fds[i]
+        phiPhase[detBins[i]] += phis[i] * omega_wavelength * totaldist[i]
         phiTD[detBins[i], tofBins[i]] += phis[i]
         for l in range(nmedia):
             phiDist[detBins[i], distBins[i, l], l] += phis[i] * layerdist[i, l] / totaldist[i]
         g1_top[detBins[i]] += big[:, i]
 
 
-def run_mcx(cfg, run_count, tof_domain, tau, wavelength, BFi, freq, fslicer):
+def run_mcx(cfg, run_count, tof_domain, tau, wavelength, BFi, freq, fslicer, ureg=None):
+    if ureg is None:
+        ureg = get_application_registry()
     seeds = np.random.randint(0xFFFF, size=run_count)
     ndet, ntof, nmedia = len(cfg.detpos), len(tof_domain) - 1, len(cfg.prop) - 1
     phiTD = np.zeros((ndet, ntof), np.float64)
-    phiFD = np.zeros(ndet, np.complex128)
+    phiPhase = np.zeros(ndet, np.float64)
     pcounts = np.zeros((ndet, ntof), np.int64)
     g1_top = np.zeros((ndet, len(tau)), np.float64)
     phiDist = np.zeros((ndet, ntof, nmedia), np.float64)
@@ -46,27 +48,28 @@ def run_mcx(cfg, run_count, tof_domain, tau, wavelength, BFi, freq, fslicer):
         print(cfg.stdout)
         detp = cfg.detphoton
         if cfg.unitinmm != 1:
-            detp.partial_path[()] *= cfg.unitinmm  # ppath to mm from grid unit
-        analyze_mcx(detp, cfg.prop, tof_domain, tau, wavelength, BFi, freq, ntof, nmedia, pcounts, phiTD, phiFD, g1_top, phiDist)
+            detp.partial_path[()] *= cfg.unitinmm  # convert ppath to mm from grid unit
+        analyze_mcx(detp, cfg.prop, tof_domain, tau, wavelength, BFi, freq, ntof, nmedia, pcounts, phiTD, phiPhase, g1_top, phiDist)
         fslice += cfg.fluence[fslicer]
-        del detp
+    nphoton = run_count * cfg.nphoton
     fslice /= run_count
     g1 = g1_top / np.sum(phiTD, axis=1)[:, np.newaxis]
     phiDist /= np.sum(phiTD, axis=1)[:, np.newaxis, np.newaxis]
+    phiPhase /= np.sum(phiTD, axis=1)
     return xr.Dataset(
         {
             "seeds": (["runs"], seeds),
             "Photons": (["detector", "time"], pcounts),
-            "PhiTD": (["detector", "time"], phiTD),
-            "PhiFD": (["detector"], phiFD),
-            "PhiDist": (["detector", "time", "layer"], phiDist),
+            "PhiTD": (["detector", "time"], phiTD / nphoton, {"long_name": "Φ"}),
+            "PhiPhase": (["detector"], phiPhase, {"units": ureg.rad, "long_name": "Φ Phase"}),
+            "PhiDist": (["detector", "time", "layer"], phiDist, {"long_name": "Φ Distribution"}),
             "g1": (["detector", "tau"], g1),
             "fluence": (["x", "y", "z", "time"], fslice),
         },
         coords={
-            "wavelength": ([], wavelength, {"units": "nanometer"}),
-            "time": (["time"], (tof_domain[:-1] + tof_domain[1:]) / 2, {"units": "second"}),
-            "tau": (["tau"], tau, {"units": "second"}),
+            "wavelength": ([], wavelength, {"units": ureg.nanometer, "long_name": "λ"}),
+            "time": (["time"], (tof_domain[:-1] + tof_domain[1:]) / 2, {"units": ureg.second}),
+            "tau": (["tau"], tau, {"units": ureg.second, "long_name": "τ"}),
         }
     )
 
