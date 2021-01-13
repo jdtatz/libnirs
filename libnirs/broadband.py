@@ -7,7 +7,7 @@ from .extinction_coeffs import get_extinction_coeffs
 
 
 @jit(parallel=True)
-def analyze_mcx(detp, prop, tof_domain, tau, wavelength, BFi, freq, ntof, nmedia, pcounts, phiTD, phiPhase, g1_top, phiDist):
+def analyze_mcx(detp, prop, tof_domain, tau, wavelength, BFi, freq, ntof, nmedia, pcounts, phiTD, phiPhase, g1_top, phiDist, momDist):
     c = 2.998e+11  # speed of light in mm / s
     detBins = detp.detector_id.astype(np.int32) - 1
     layerdist = prop[1:, 3] * detp.partial_path.T
@@ -19,6 +19,7 @@ def analyze_mcx(detp, prop, tof_domain, tau, wavelength, BFi, freq, ntof, nmedia
     omega_wavelength = -2 * np.pi * freq / c
     prep = (-2*(2*np.pi*prop[1:, 3]/(wavelength*1e-6))**2*BFi).astype(np.float32) @ detp.momentum
     big = np.exp(prep * tau.reshape((len(tau), 1)) + path)
+    mom_prep = phis.reshape((len(phis), 1)) * detp.momentum.T
     for i in range(len(detBins)):
         pcounts[detBins[i], tofBins[i]] += 1
         phiPhase[detBins[i]] += phis[i] * omega_wavelength * totaldist[i]
@@ -26,6 +27,7 @@ def analyze_mcx(detp, prop, tof_domain, tau, wavelength, BFi, freq, ntof, nmedia
         for l in range(nmedia):
             phiDist[detBins[i], distBins[i, l], l] += phis[i] * layerdist[i, l] / totaldist[i]
         g1_top[detBins[i]] += big[:, i]
+        momDist[detBins[i], tofBins[i]] += mom_prep[i]
 
 
 def run_mcx(cfg, run_count, tof_domain, tau, wavelength, BFi, freq, fslicer, ureg=None):
@@ -38,6 +40,7 @@ def run_mcx(cfg, run_count, tof_domain, tau, wavelength, BFi, freq, fslicer, ure
     pcounts = np.zeros((ndet, ntof), np.int64)
     g1_top = np.zeros((ndet, len(tau)), np.float64)
     phiDist = np.zeros((ndet, ntof, nmedia), np.float64)
+    momDist = np.zeros((ndet, ntof, nmedia), np.float64)
     fslice = 0
     for seed in seeds:
         cfg.seed = seed
@@ -45,17 +48,18 @@ def run_mcx(cfg, run_count, tof_domain, tau, wavelength, BFi, freq, fslicer, ure
         cfg.issave2pt = True
         cfg.issavedet = True
         cfg.run()
-        print(cfg.stdout)
+        print(cfg.output_text)
         detp = cfg.detphoton
         if cfg.unitinmm != 1:
             detp.partial_path[()] *= cfg.unitinmm  # convert ppath to mm from grid unit
-        analyze_mcx(detp, cfg.prop, tof_domain, tau, wavelength, BFi, freq, ntof, nmedia, pcounts, phiTD, phiPhase, g1_top, phiDist)
+        analyze_mcx(detp, cfg.prop, tof_domain, tau, wavelength, BFi, freq, ntof, nmedia, pcounts, phiTD, phiPhase, g1_top, phiDist, momDist)
         fslice += cfg.fluence[fslicer]
     nphoton = run_count * cfg.nphoton
     fslice /= run_count
     g1 = g1_top / np.sum(phiTD, axis=1)[:, np.newaxis]
     phiDist /= np.sum(phiTD, axis=1)[:, np.newaxis, np.newaxis]
     phiPhase /= np.sum(phiTD, axis=1)
+    momDist /= np.sum(phiTD, axis=1)[:, np.newaxis, np.newaxis]
     return xr.Dataset(
         {
             "seeds": (["runs"], seeds),
@@ -65,6 +69,7 @@ def run_mcx(cfg, run_count, tof_domain, tau, wavelength, BFi, freq, fslicer, ure
             "PhiDist": (["detector", "time", "layer"], phiDist, {"long_name": "Φ Distribution"}),
             "g1": (["detector", "tau"], g1),
             "fluence": (["x", "y", "z", "time"], fslice),
+            "momDist": (["detector", "time", "layer"], momDist, {"long_name": "Momentum-Transfer Distribution"})
         },
         coords={
             "wavelength": ([], wavelength, {"units": ureg.nanometer, "long_name": "λ"}),
