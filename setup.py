@@ -3,7 +3,7 @@ from setuptools import setup
 
 setup(
     name='libnirs',
-    version='0.4',
+    version='0.4.1',
     description='Library for NIRS analysis',
     author='Julia Tatz',
     author_email='tatz.j@northeastern.edu',

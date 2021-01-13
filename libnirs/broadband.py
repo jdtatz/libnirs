@@ -48,7 +48,7 @@ def run_mcx(cfg, run_count, tof_domain, tau, wavelength, BFi, freq, fslicer, ure
         cfg.issave2pt = True
         cfg.issavedet = True
         cfg.run()
-        print(cfg.output_text)
+        print(cfg.stdout)
         detp = cfg.detphoton
         if cfg.unitinmm != 1:
             detp.partial_path[()] *= cfg.unitinmm  # convert ppath to mm from grid unit
