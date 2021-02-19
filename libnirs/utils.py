@@ -1,9 +1,56 @@
 import numpy as np
-import numba as nb
 from functools import partial
 from numpy import sqrt, sin, cos, arcsin
+from numba import jit as _jit, vectorize
+from numba.core import types, cgutils
+from numba.core.typing import BaseContext as TypingContext, Signature
+from numba.core.base import BaseContext as CodegenContext
+from llvmlite import ir
+from numba.extending import intrinsic
+from typing import Sequence
 
-jit = partial(nb.jit, nopython=True, nogil=True, error_model='numpy')
+jit = partial(_jit, nopython=True, nogil=True, error_model='numpy')
+
+
+@intrinsic
+def _fma(typingctx: TypingContext, a: types.Type, b: types.Type, c: types.Type):
+    # check for accepted types
+    args = a, b, c
+    if all(isinstance(ty, types.Float) for ty in args):
+        # create the expected type signature
+        fty = max(args)
+        sig = fty(fty, fty, fty)
+        # defines the custom code generation
+        def codegen(context: CodegenContext, builder: ir.IRBuilder, signature: Signature, args: Sequence[ir.Value]):
+            # llvm IRBuilder code here
+            return builder.fma(*args)
+        return sig, codegen
+
+
+@vectorize(['f4(f4, f4, f4)', 'f8(f8, f8, f8)'])
+def fma(a, b, c):
+    return _fma(a, b, c)
+
+
+@intrinsic
+def map_tuples(typingctx: TypingContext, map_fn: types.Type, *tuples: types.Type):
+    # check for accepted types
+    if isinstance(map_fn, types.Callable) and all(isinstance(t, types.BaseTuple) for t in tuples):
+        fn_sigs = [map_fn.get_call_type(typingctx, tys, {}) for tys in zip(*(t.types for t in tuples))]
+        # create the expected type signature
+        result_type = types.BaseTuple.from_types([sig.return_type for sig in fn_sigs])
+        sig = result_type(map_fn, types.StarArgTuple(tuples))
+        # defines the custom code generation
+        def codegen(context: CodegenContext, builder: ir.IRBuilder, signature: Signature, args: Sequence[ir.Value]):
+            # llvm IRBuilder code here
+            map_fn_ty, _ = signature.args
+            funcs = (context.get_function(map_fn_ty, sig) for sig in fn_sigs)
+            _, tuples = args
+            tuples = cgutils.unpack_tuple(builder, tuples)
+            elems = (func(builder, [builder.extract_value(t, i) for t in tuples]) for i, func in enumerate(funcs))
+            return context.make_tuple(builder, signature.return_type, elems)
+        return sig, codegen
+
 
 _x_kr21 = (-9.956571630258080807355272806890028e-01, -9.739065285171717200779640120844521e-01, -9.301574913557082260012071800595083e-01, -8.650633666889845107320966884234930e-01, -7.808177265864168970637175783450424e-01, -6.794095682990244062343273651148736e-01, -5.627571346686046833390000992726941e-01, -4.333953941292471907992659431657842e-01, -2.943928627014601981311266031038656e-01, -1.488743389816312108848260011297200e-01, 0.0, 1.488743389816312108848260011297200e-01, 2.943928627014601981311266031038656e-01, 4.333953941292471907992659431657842e-01, 5.627571346686046833390000992726941e-01, 6.794095682990244062343273651148736e-01, 7.808177265864168970637175783450424e-01, 8.650633666889845107320966884234930e-01, 9.301574913557082260012071800595083e-01, 9.739065285171717200779640120844521e-01, 9.956571630258080807355272806890028e-01)
 
