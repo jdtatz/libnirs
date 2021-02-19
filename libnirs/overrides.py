@@ -1,32 +1,36 @@
 import math
 import cmath
+import ctypes
 import numpy as np
-import numba as nb
-import numba.cuda
+import scipy.special
+import numba
+import numba
+import numba.cuda as cuda
 import numba.cuda.cudaimpl
 import numba.cuda.cudadecl
-import scipy.special
-
+from numba import jit, vectorize
+from numba.core import types
+from numba.extending import get_cython_function_address, lower_builtin, overload
 
 def _add_override(np_fn, math_fn, cmath_fn=None):
     cmath_fn = math_fn if cmath_fn is None else cmath_fn
 
-    @nb.cuda.cudaimpl.lower(np_fn, nb.types.Number)
+    @cuda.cudaimpl.lower(np_fn, types.Number)
     def lower_override(context, builder, sig, args):
-        if isinstance(sig.args[0], nb.types.Complex):
+        if isinstance(sig.args[0], types.Complex):
             fn = cmath_fn
         else:
             fn = math_fn
         impl = context.get_function(fn, sig)
         return impl(builder, args)
 
-    @nb.cuda.cudadecl.registry.register
-    class OverrideIntrinsicTemplate(nb.core.typing.templates.AbstractTemplate):
+    @cuda.cudadecl.registry.register
+    class OverrideIntrinsicTemplate(numba.core.typing.templates.AbstractTemplate):
         key = np_fn
         def generic(self, args, kws):
             return args[0](args[0])
 
-    nb.cuda.cudadecl.registry.register_global(np_fn, nb.types.Function(OverrideIntrinsicTemplate))
+    cuda.cudadecl.registry.register_global(np_fn, types.Function(OverrideIntrinsicTemplate))
 
 
 _add_override(np.exp, math.exp, cmath.exp)
@@ -49,19 +53,19 @@ _SQ2OPI = 0.79788456080286535588
 _PIO4 = .78539816339744830962
 
 
-@nb.jit(nopython=True)
+@jit(nopython=True)
 def _polevl(x, coef):
-    ans = coef[0] * x + coef[1]
+    ans = cuda.fma(coef[0], x, coef[1])
     for i in range(2, len(coef)):
-        ans = ans * x + coef[i]
+        ans = cuda.fma(ans, x, coef[i])
     return ans
 
 
-@nb.jit(nopython=True)
+@jit(nopython=True)
 def _p1evl(x, coef):
     ans = x + coef[0]
     for i in range(1, len(coef)):
-        ans = ans*x + coef[i]
+        ans = cuda.fma(ans, x, coef[i])
     return ans
 
 
@@ -82,29 +86,36 @@ def _scalar_j0(x):
     else:
         return 1 - x*x/4
 
-_vector_j0 = nb.vectorize(nopython=True)(_scalar_j0)
+addr = get_cython_function_address("scipy.special.cython_special", "j0")
+functype = ctypes.CFUNCTYPE(ctypes.c_double, ctypes.c_double)
+_cython_j0 = functype(addr)
+_vector_j0 = vectorize(nopython=True)(lambda v: _cython_j0(v))
+overload(scipy.special.j0)(lambda v: (lambda v: _vector_j0(v)))
+
+addr = get_cython_function_address("scipy.special.cython_special", "erfcinv")
+functype = ctypes.CFUNCTYPE(ctypes.c_double, ctypes.c_double)
+_cython_erfcinv = functype(addr)
+_vector_erfcinv = vectorize(nopython=True)(lambda v: _cython_erfcinv(v))
+overload(scipy.special.erfcinv)(lambda v: (lambda v: _vector_erfcinv(v)))
+
+addr = get_cython_function_address("scipy.special.cython_special", "gammainccinv")
+functype = ctypes.CFUNCTYPE(ctypes.c_double, ctypes.c_double, ctypes.c_double)
+_cython_gammainccinv = functype(addr)
+_vector_gammainccinv = vectorize(nopython=True)(lambda a, y: _cython_gammainccinv(a, y))
+overload(scipy.special.gammainccinv)(lambda a, y: (lambda a, y: _vector_gammainccinv(a, y)))
 
 
-@nb.cuda.cudaimpl.lower(scipy.special.j0, nb.types.Number)
+@cuda.cudaimpl.lower(scipy.special.j0, types.Number)
 def _lower_cuda_j0(context, builder, sig, args):
     res = context.compile_internal(builder, _scalar_j0, sig, args)
-    return nb.targets.imputils.impl_ret_untracked(context, builder, sig, res)
+    return numba.core.imputils.impl_ret_untracked(context, builder, sig, res)
 
 
-@nb.extending.lower_builtin(scipy.special.j0, nb.types.Any)
-def _lower_cpu_j0(context, builder, sig, args):
-    _vector_j0.add(sig)
-    impl = context.get_function(_vector_j0, sig)
-    return impl(builder, args)
-
-
-@nb.core.typing.templates.infer
-@nb.cuda.cudadecl.registry.register
-class _J0IntrinsicTemplate(nb.core.typing.templates.AbstractTemplate):
+@cuda.cudadecl.registry.register
+class _J0IntrinsicTemplate(numba.core.typing.templates.AbstractTemplate):
     key = scipy.special.j0
 
     def generic(self, args, kws):
         return args[0](args[0])
 
-nb.core.typing.templates.infer_global(scipy.special.j0, nb.types.Function(_J0IntrinsicTemplate))
-nb.cuda.cudadecl.registry.register_global(scipy.special.j0, nb.types.Function(_J0IntrinsicTemplate))
+cuda.cudadecl.registry.register_global(scipy.special.j0, types.Function(_J0IntrinsicTemplate))
