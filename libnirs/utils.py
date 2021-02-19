@@ -56,3 +56,31 @@ def gen_coeffs(n, n_ext):
         integrate(_gen_reflectance_coeff, 0, arcsin(n_ext/n), 10, (n, n_ext)), 
         integrate(_gen_fluence_rate_coeff, 0, arcsin(n_ext/n), 10, (n, n_ext))
     )
+
+
+@jit
+def _qrng_phi(d, tol=1e-6):
+    l, u = 1.0, 2.0
+    while True:
+        mid = (l + u) / 2
+        f_mid = mid**(d + 1) - mid - 1
+        if f_mid == 0 or (u - l) < 2 * tol:
+            return mid
+        elif f_mid < 0:
+            l = mid
+        else:
+            u = mid
+
+
+@jit
+def qrng(ndim, seed=None):
+    g = _qrng_phi(ndim)
+    alpha = g ** -np.arange(1, ndim + 1)
+    if seed is None:
+        state = np.full(shape=ndim, fill_value=0.5, dtype=np.float64)
+    else:
+        state = seed
+    while True:
+        state += alpha
+        state %= 1.0
+        yield state.copy()
