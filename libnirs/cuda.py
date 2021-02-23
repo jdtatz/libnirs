@@ -1,137 +1,17 @@
-from .model import model_ss, model_fd, model_td, model_g1, model_g2
+from .model import _model_ss, _model_ss_sig, _model_fd, _model_fd_sig, _model_td, _model_td_sig, _model_g1, _model_g1_sig, _model_g2, _model_g2_sig
 from .layered_model import model_nlayer_ss, model_nlayer_fd, model_nlayer_g1, model_nlayer_g2
 import numpy as np
-import numba as nb
-import numba.cuda
+from numba import vectorize
+import numba.cuda as cuda
+
+cuda_model_ss = vectorize(_model_ss_sig, target="cuda")(_model_ss)
+cuda_model_fd = vectorize(_model_fd_sig, target="cuda")(_model_fd)
+cuda_model_td = vectorize(_model_td_sig, target="cuda")(_model_td)
+cuda_model_g1 = vectorize(_model_g1_sig, target="cuda")(_model_g1)
+cuda_model_g2 = vectorize(_model_g2_sig, target="cuda")(_model_g2)
 
 
-@nb.cuda.jit
-def cuda_model_ss(rhos, muas, musps, n, n_ext, out):
-    """Model Steady-State Reflectance with Extrapolated Boundary Condition.
-    Source: "Improved solutions of the steady-state and the time-resolved diffusion equations for reflectance from a semi-infinite turbid medium"
-    parameters:
-        rho := Source-Detector Seperation [length]
-        mua := Absorption Coefficent [1/length]
-        musp := Reduced Scattering Coefficent [1/length]
-        n := Media Index of Refraction []
-        n_ext := External Index of Refraction []
-        out := Output Array
-    """
-    i = nb.cuda.grid(1)
-    if i > out.shape[0]:
-        return
-    rho = rhos[i]
-    mua = muas[i]
-    musp = musps[i]
-    out[i] = model_ss(rho, mua, musp, n, n_ext)
-
-
-@nb.cuda.jit
-def cuda_model_fd(rhos, muas, musps, n, n_ext, freq, c, out):
-    """Model Frequncy-Domain Reflectance with Extrapolated Boundary Condition.
-    Source: "Improved solutions of the steady-state and the time-resolved diffusion equations for reflectance from a semi-infinite turbid medium"
-    parameters:
-        rho := Source-Detector Seperation [length]
-        mua := Absorption Coefficent [1/length]
-        musp := Reduced Scattering Coefficent [1/length]
-        n := Media Index of Refraction []
-        n_ext := External Index of Refraction []
-        freq := Frequncy of Source [1/time]
-        c := Speed of Light in vacuum [length/time]
-        out := Output Array
-    """
-    i = nb.cuda.grid(1)
-    if i > out.shape[0]:
-        return
-    rho = rhos[i]
-    mua = muas[i]
-    musp = musps[i]
-    out[i] = model_fd(rho, mua, musp, n, n_ext, freq, c)
-
-
-@nb.cuda.jit
-def cuda_model_td(ts, rhos, muas, musps, n, n_ext, c, out):
-    """Model Time-Domain Reflectance with Extrapolated Boundary Condition.
-    Source: "Improved solutions of the steady-state and the time-resolved diffusion equations for reflectance from a semi-infinite turbid medium"
-    parameters:
-        t := Time of Flight [time]
-        rho := Source-Detector Seperation [length]
-        mua := Absorption Coefficent [1/length]
-        musp := Reduced Scattering Coefficent [1/length]
-        n := Media Index of Refraction []
-        n_ext := External Index of Refraction []
-        c := Speed of Light in vacuum [length/time]
-        out := Output Array
-    """
-    i = nb.cuda.grid(1)
-    if i > out.shape[0]:
-        return
-    t = ts[i]
-    rho = rhos[i]
-    mua = muas[i]
-    musp = musps[i]
-    out[i] = model_td(t, rho, mua, musp, n, n_ext, c)
-
-
-@nb.cuda.jit
-def cuda_model_g1(taus, bfi, muas, musps, wavelengths, rhos, first_tau_delay, n, n_ext, out):
-    """Model g1 (autocorelation) for Diffuse correlation spectroscopy.
-    Source: "Diffuse optics for tissue monitoring and tomography"
-    parameters:
-        tau := Correlation time [time]
-        bfi := Blood-Flow Index []
-        mua := Absorption Coefficent [1/length]
-        musp := Reduced Scattering Coefficent [1/length]
-        wavelength := Wavelength of Light [length]
-        rho := Source-Detector Seperation [length]
-        first_tau_delay := The first tau for normalization [time]
-        n := Media Index of Refraction []
-        n_ext := External Index of Refraction []
-        out := Output Array
-    """
-    i = nb.cuda.grid(1)
-    if i > out.shape[0]:
-        return
-    tau = taus[i]
-    rho = rhos[i]
-    tau = taus[i]
-    mua = muas[i]
-    musp = musps[i]
-    wavelength = wavelengths[i]
-    out[i] = model_g1(tau, bfi, mua, musp, wavelength, rho, first_tau_delay, n, n_ext)
-
-
-@nb.cuda.jit
-def cuda_model_g2(taus, bfi, beta, muas, musps, wavelengths, rhos, first_tau_delay, n, n_ext, out):
-    """Model g2 (autocorelation) for Diffuse correlation spectroscopy.
-    Source: "Diffuse optics for tissue monitoring and tomography"
-    parameters:
-        tau := Correlation time [time]
-        bfi := Blood-Flow Index []
-        beta := Beta derived for Siegert relation []
-        mua := Absorption Coefficent [1/length]
-        musp := Reduced Scattering Coefficent [1/length]
-        wavelength := Wavelength of Light [length]
-        rho := Source-Detector Seperation [length]
-        first_tau_delay := The first tau for normalization [time]
-        n := Media Index of Refraction []
-        n_ext := External Index of Refraction []
-        out := Output Array
-    """
-    i = nb.cuda.grid(1)
-    if i > out.shape[0]:
-        return
-    tau = taus[i]
-    rho = rhos[i]
-    tau = taus[i]
-    mua = muas[i]
-    musp = musps[i]
-    wavelength = wavelengths[i]
-    out[i] = model_g2(tau, bfi, beta, mua, musp, wavelength, rho, first_tau_delay, n, n_ext)
-
-
-
-@nb.cuda.jit
+@cuda.jit
 def cuda_model_nlayer_ss(rhos, muas, musps, depths, n, n_ext, int_limit, int_divs, out):
     """Model Steady-State Reflectance in N Layers with Partial-Current Boundary Condition.
     Source: "Noninvasive determination of the optical properties of two-layered turbid media"
@@ -146,7 +26,7 @@ def cuda_model_nlayer_ss(rhos, muas, musps, depths, n, n_ext, int_limit, int_div
         int_divs := Number of subregions to integrate over []
         out := Output Array
     """
-    i = nb.cuda.grid(1)
+    i = cuda.grid(1)
     if i > out.shape[0]:
         return
     rho = rhos[i]
@@ -155,7 +35,7 @@ def cuda_model_nlayer_ss(rhos, muas, musps, depths, n, n_ext, int_limit, int_div
     out[i] = model_nlayer_ss(rho, mua, musp, depths, n, n_ext, int_limit, int_divs)
 
 
-@nb.cuda.jit
+@cuda.jit
 def cuda_model_nlayer_fd(rhos, muas, musps, depths, freq, c, n, n_ext, int_limit, int_divs, out):
     """Model Frequncy-Domain Reflectance in N Layers with Partial-Current Boundary Condition.
     Source: "Noninvasive determination of the optical properties of two-layered turbid media"
@@ -172,7 +52,7 @@ def cuda_model_nlayer_fd(rhos, muas, musps, depths, freq, c, n, n_ext, int_limit
         int_divs := Number of subregions to integrate over []
         out := Output Array
     """
-    i = nb.cuda.grid(1)
+    i = cuda.grid(1)
     if i > out.shape[0]:
         return
     rho = rhos[i]
@@ -181,7 +61,7 @@ def cuda_model_nlayer_fd(rhos, muas, musps, depths, freq, c, n, n_ext, int_limit
     out[i] = model_nlayer_fd(rho, mua, musp, depths, freq, c, n, n_ext, int_limit, int_divs)
 
 
-@nb.cuda.jit
+@cuda.jit
 def cuda_model_nlayer_g1(rhos, taus, muas, musps, depths, BFi, wavelengths, n, n_ext, tau_0, int_limit, int_divs, out):
     """Model g1 (autocorelation) for Diffuse Correlation Spectroscopy in N Layers with Partial-Current Boundary Condition.
     Source1: "Noninvasive determination of the optical properties of two-layered turbid media"
@@ -201,7 +81,7 @@ def cuda_model_nlayer_g1(rhos, taus, muas, musps, depths, BFi, wavelengths, n, n
         int_divs := Number of subregions to integrate over []
         out := Output Array
     """
-    i = nb.cuda.grid(1)
+    i = cuda.grid(1)
     if i > out.shape[0]:
         return
     rho = rhos[i]
@@ -211,7 +91,7 @@ def cuda_model_nlayer_g1(rhos, taus, muas, musps, depths, BFi, wavelengths, n, n
     wavelength = wavelengths[i]
     out[i] = model_nlayer_g1(rho, tau, mua, musp, depths, BFi, wavelength, n, n_ext, tau_0, int_limit, int_divs)
 
-@nb.cuda.jit
+@cuda.jit
 def cuda_model_nlayer_g2(rhos, taus, muas, musps, depths, BFi, wavelengths, n, n_ext, beta, tau_0, int_limit, int_divs, out):
     """Model g2 (autocorelation) for Diffuse Correlation Spectroscopy in N Layers with Partial-Current Boundary Condition.
     Source1: "Noninvasive determination of the optical properties of two-layered turbid media"
@@ -232,7 +112,7 @@ def cuda_model_nlayer_g2(rhos, taus, muas, musps, depths, BFi, wavelengths, n, n
         int_divs := Number of subregions to integrate over []
         out := Output Array
     """
-    i = nb.cuda.grid(1)
+    i = cuda.grid(1)
     if i > out.shape[0]:
         return
     rho = rhos[i]

@@ -1,5 +1,6 @@
 from numpy import pi, exp, sqrt
 from .utils import jit, gen_impedance, gen_coeffs
+from numba import vectorize
 
 
 @jit
@@ -21,8 +22,7 @@ def _ecbc(k, rho, D, n, n_ext):
     return fresTphi * phi + fresTj * j
 
 
-@jit
-def model_ss(rho, mua, musp, n, n_ext):
+def _model_ss(rho, mua, musp, n, n_ext):
     """Model Steady-State Reflectance with Extrapolated Boundary Condition.
     Source: "Improved solutions of the steady-state and the time-resolved diffusion equations for reflectance from a semi-infinite turbid medium"
     parameters:
@@ -35,10 +35,11 @@ def model_ss(rho, mua, musp, n, n_ext):
     D = 1 / (3 * (mua + musp))
     mu_eff = sqrt(mua / D)
     return _ecbc(mu_eff, rho, D, n, n_ext)
+_model_ss_sig = ["f4(f4, f4, f4, f4, f4)", "f8(f8, f8, f8, f8, f8)"]
+model_ss = vectorize(_model_ss_sig, target="cpu")(_model_ss)
 
 
-@jit
-def model_fd(rho, mua, musp, n, n_ext, freq, c):
+def _model_fd(rho, mua, musp, n, n_ext, freq, c):
     """Model Frequncy-Domain Reflectance with Extrapolated Boundary Condition.
     Source: "Improved solutions of the steady-state and the time-resolved diffusion equations for reflectance from a semi-infinite turbid medium"
     parameters:
@@ -56,10 +57,12 @@ def model_fd(rho, mua, musp, n, n_ext, freq, c):
     k_in = sqrt(1 + (omega / (mua * v)) ** 2)
     k = sqrt(mua / D / 2) * (sqrt(k_in + 1) + 1j * sqrt(k_in - 1))
     return _ecbc(k, rho, D, n, n_ext)
+_model_fd_sig = ["c8(f4, f4, f4, f4, f4, f4, f4)", "c16(f8, f8, f8, f8, f8, f8, f8)"]
+model_fd = vectorize(_model_fd_sig, target="cpu")(_model_fd)
 
 
-@jit
-def model_td(t, rho, mua, musp, n, n_ext, c):
+
+def _model_td(t, rho, mua, musp, n, n_ext, c):
     """Model Time-Domain Reflectance with Extrapolated Boundary Condition.
     Source: "Improved solutions of the steady-state and the time-resolved diffusion equations for reflectance from a semi-infinite turbid medium"
     parameters:
@@ -96,11 +99,12 @@ def model_td(t, rho, mua, musp, n, n_ext, c):
         * (exp(-(r1_sq / (4 * D * v * t))) - exp(-(r2_sq / (4 * D * v * t))))
     )
     return flu_coeff * fluence_rate + refl_coeff * reflectance
+_model_td_sig = ["f4(f4, f4, f4, f4, f4, f4, f4)", "f8(f8, f8, f8, f8, f8, f8, f8)"]
+model_td = vectorize(_model_td_sig, target="cpu")(_model_td)
 
 
-@jit
-def model_g1(tau, bfi, mua, musp, wavelength, rho, first_tau_delay, n, n_ext=1):
-    """Model g1 (autocorelation) for Diffuse correlation spectroscopy.
+def _model_g1(tau, bfi, mua, musp, wavelength, rho, first_tau_delay, n, n_ext):
+    """Model g1 (autocorelation) for Diffuse correlation spectroscopy with Extrapolated Boundary Condition.
     Source: "Diffuse optics for tissue monitoring and tomography"
     parameters:
         tau := Correlation time [time]
@@ -118,11 +122,13 @@ def model_g1(tau, bfi, mua, musp, wavelength, rho, first_tau_delay, n, n_ext=1):
     k_tau = sqrt((mua + 2 * musp * k0 ** 2 * bfi * tau) / D)
     k_norm = sqrt((mua + 2 * musp * k0 ** 2 * bfi * first_tau_delay) / D)
     return _ecbc(k_tau, rho, D, n, n_ext) / _ecbc(k_norm, rho, D, n, n_ext)
+_model_g1_sig = ["f4(f4, f4, f4, f4, f4, f4, f4, f4, f4)", "f8(f8, f8, f8, f8, f8, f8, f8, f8, f8)"]
+model_g1 = vectorize(_model_g1_sig, target="cpu")(_model_g1)
+_j_model_g1 = jit(_model_g1)
 
 
-@jit
-def model_g2(tau, bfi, beta, mua, musp, wavelength, rho, first_tau_delay, n, n_ext=1):
-    """Model g2 (autocorelation) for Diffuse correlation spectroscopy.
+def _model_g2(tau, bfi, beta, mua, musp, wavelength, rho, first_tau_delay, n, n_ext):
+    """Model g2 (autocorelation) for Diffuse correlation spectroscopy with Extrapolated Boundary Condition.
     Source: "Diffuse optics for tissue monitoring and tomography"
     parameters:
         tau := Correlation time [time]
@@ -136,5 +142,7 @@ def model_g2(tau, bfi, beta, mua, musp, wavelength, rho, first_tau_delay, n, n_e
         n := Media Index of Refraction []
         n_ext := External Index of Refraction []
     """
-    g1 = model_g1(tau, bfi, mua, musp, wavelength, rho, first_tau_delay, n, n_ext)
+    g1 = _j_model_g1(tau, bfi, mua, musp, wavelength, rho, first_tau_delay, n, n_ext)
     return 1 + beta * g1 ** 2
+_model_g2_sig = ["f4(f4, f4, f4, f4, f4, f4, f4, f4, f4, f4)", "f8(f8, f8, f8, f8, f8, f8, f8, f8, f8, f8)"]
+model_g2 = vectorize(_model_g2_sig, target="cpu")(_model_g2)
