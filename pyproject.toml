@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "libnirs"
-version = "0.5"
+version = "0.5.1"
 description = "Library for NIRS analysis"
 license = "Proprietary"
 authors = ["Julia Tatz <tatz.j@northeastern.edu>"]

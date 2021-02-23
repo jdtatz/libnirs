@@ -156,7 +156,7 @@ def model_nlayer_ss(rho, mua, musp, depths, n, n_ext=1, int_limit=10, int_divs=1
     z0 = 3*D1
     assert depths[0] >= z0
     zb = 2*D1*imp
-    k2 = map_tuples(_ss_k, mua, D)
+    k2 = map_tuples(_ss_k2, mua, D)
     return integrate(_refl_integrator, 0, int_limit, int_divs, (rho, z0, zb, depths, D, k2)) / (2*pi)
 
 
@@ -178,7 +178,7 @@ def model_nlayer_ss_fft(mua, musp, depths, n, n_ext=1, log_limit=15, npoints=512
     z0 = 3*D1
     # assert np.all(depths[0] >= z0)
     zb = 2*D1*imp
-    k2 = _map_tuples(_ss_k, mua, D)
+    k2 = _map_tuples(_ss_k2, mua, D)
     sp, h = _refl_fft_hankel(z0, zb, depths, D, k2, log_limit, npoints)
     h /= 2 * pi
     return np.squeeze(sp), h
