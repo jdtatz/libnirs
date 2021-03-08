@@ -4,16 +4,16 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "libnirs"
-version = "0.5.3"
+version = "0.6"
 description = "Library for NIRS analysis"
 license = "Proprietary"
 authors = ["Julia Tatz <tatz.j@northeastern.edu>"]
 include = ['libnirs/extc.npz']
 
 [tool.poetry.dependencies]
-python = ">=3.6"
-numpy = ">=1.19"
-scipy = ">=1.5"
+python = ">=3.7"
+numpy = ">=1.20"
+scipy = ">=1.6"
 matplotlib = ">=3.3"
 numba = ">=0.52"
 xarray = ">=0.16"

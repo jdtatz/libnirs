@@ -3,11 +3,7 @@ from scipy import stats
 from matplotlib.axes import Axes
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from typing import Optional, Union, Callable, Tuple, Any, Dict, TypeVar
-
-try:
-    from numpy.typing import ArrayLike
-except ImportError:
-    ArrayLike = TypeVar("ArrayLike")
+from numpy.typing import ArrayLike
 
 _bkg_color = "#212121"
 _fgr_color = "#eeffff"

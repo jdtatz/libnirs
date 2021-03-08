@@ -1,9 +1,190 @@
+from __future__ import annotations
 import numpy as np
 import xarray as xr
 from pint import get_application_registry
 from pymcx import MCX, SaveFlags, SrcType, DetectedPhotons
+from typing import NamedTuple, Iterator, Tuple, List, Generator
 from .utils import jit
 from .extinction_coeffs import get_extinction_coeffs
+from .statistical import CentralMoments, WeightedCentralMoments, StandardMoments, weighted_quantile
+
+
+class PhotonAnalysisResults(NamedTuple):
+    counts: np.ndarray
+    phi_time: StandardMoments
+    phi: StandardMoments
+    opl: StandardMoments
+    momentum: StandardMoments
+    layer_opl: StandardMoments
+    layer_prop: StandardMoments
+    layer_momentum: StandardMoments
+
+
+class PhotonAnalysis(NamedTuple):
+    # packet counts
+    counts: np.ndarray
+    phi_time_distr: CentralMoments
+    phi_distr: CentralMoments
+    opl_distr: WeightedCentralMoments
+    momentum_distr: WeightedCentralMoments
+    layer_opl_distr: WeightedCentralMoments
+    layer_prop_distr: WeightedCentralMoments
+    layer_momentum_distr: WeightedCentralMoments
+
+    @staticmethod
+    def alloc(n_detector: int, n_tof: int, n_media: int) -> PhotonAnalysis:
+        return PhotonAnalysis(
+            counts=np.zeros((n_detector, n_tof), dtype=np.uint64),
+            phi_time_distr=CentralMoments.alloc((n_detector, n_tof)),
+            phi_distr=CentralMoments.alloc(n_detector),
+            opl_distr=WeightedCentralMoments.alloc(n_detector),
+            momentum_distr=WeightedCentralMoments.alloc(n_detector),
+            layer_opl_distr=WeightedCentralMoments.alloc((n_detector, n_media)),
+            layer_prop_distr=WeightedCentralMoments.alloc((n_detector, n_media)),
+            layer_momentum_distr=WeightedCentralMoments.alloc((n_detector, n_media)),
+        )
+
+    @staticmethod
+    def from_arrays(analysis) -> PhotonAnalysis:
+        return PhotonAnalysis(
+            counts=analysis.counts,
+            phi_time_distr=CentralMoments.from_array(analysis.phi_time_distr),
+            phi_distr=CentralMoments.from_array(analysis.phi_distr),
+            opl_distr=WeightedCentralMoments.from_array(analysis.opl_distr),
+            momentum_distr=WeightedCentralMoments.from_array(analysis.momentum_distr),
+            layer_opl_distr=WeightedCentralMoments.from_array(analysis.layer_opl_distr),
+            layer_prop_distr=WeightedCentralMoments.from_array(analysis.layer_prop_distr),
+            layer_momentum_distr=WeightedCentralMoments.from_array(analysis.layer_momentum_distr),
+        )
+
+    def to_arrays(self):
+        return PhotonAnalysis(
+            counts=self.counts,
+            phi_time_distr=self.phi_time_distr.to_array(),
+            phi_distr=self.phi_distr.to_array(),
+            opl_distr=self.opl_distr.to_array(),
+            momentum_distr=self.momentum_distr.to_array(),
+            layer_opl_distr=self.layer_opl_distr.to_array(),
+            layer_prop_distr=self.layer_prop_distr.to_array(),
+            layer_momentum_distr=self.layer_momentum_distr.to_array(),
+        )
+
+    def finalize(self, nphoton: int) -> PhotonAnalysisResults:
+        return PhotonAnalysisResults(
+            counts=self.counts.copy(),
+            phi_time=self.phi_time_distr.update_to_n(nphoton).standard,
+            phi=(self.phi_distr.update_to_n(nphoton).standard),
+            opl=(self.opl_distr.standard),
+            momentum=(self.momentum_distr.standard),
+            layer_opl=(self.layer_opl_distr.standard),
+            layer_prop=(self.layer_prop_distr.standard),
+            layer_momentum=(self.layer_momentum_distr.standard),
+        )
+
+
+@jit
+def analyze_photons(detp, mua, n, c, tof_bin_edges, results: PhotonAnalysis):
+    n_tof = len(tof_bin_edges) - 1
+    # assert np.isclose(tof_bin_edges[0], 0)
+    n_media = len(mua)
+    # assert len(mua) == len(n)
+    det_bin = detp.detector_id.astype(np.int32) - 1
+    layer_opl = n * detp.partial_path.T
+    opl = n @ detp.partial_path
+    layer_p = layer_opl / opl.reshape((-1, 1))
+    # MCX culls photons once they exceed t_end, so the amount detected is negligable
+    tof_bin = np.minimum(np.digitize(opl, c * tof_bin_edges), n_tof) - 1
+    ln_phi = -mua @ detp.partial_path
+    phi = np.exp(ln_phi)
+    mom = detp.momentum.sum(axis=0)
+    layer_mom = np.ascontiguousarray(detp.momentum.T)
+    for i in range(len(det_bin)):
+        d_i = det_bin[i]
+        t_i = tof_bin[i]
+        results.counts[d_i, t_i] += 1
+        phi_i = phi[i]
+        CentralMoments.push(results.phi_time_distr, phi_i, (d_i, t_i))
+        CentralMoments.push(results.phi_distr, phi_i, d_i)
+        WeightedCentralMoments.push(results.opl_distr, opl[i], phi_i, d_i)
+        WeightedCentralMoments.push(results.momentum_distr, mom[i], phi_i, d_i)
+        # WeightedCentralMoments.push(results.layer_opl_distr, layer_opl[i], phi_i, (d_i))
+        # WeightedCentralMoments.push(results.layer_prop_distr, layer_p[i], phi_i, (d_i))
+        # WeightedCentralMoments.push(results.layer_momentum_distr, layer_mom[i], phi_i, (d_i))
+        for j in range(n_media):
+            WeightedCentralMoments.push(results.layer_opl_distr, layer_opl[i, j], phi_i, (d_i, j))
+            WeightedCentralMoments.push(results.layer_prop_distr, layer_p[i, j], phi_i, (d_i, j))
+            WeightedCentralMoments.push(results.layer_momentum_distr, layer_mom[i, j], phi_i, (d_i, j))
+
+
+class Histogram(NamedTuple):
+    histogram: np.ndarray
+    bin_edges: np.ndarray
+
+
+class PhotonsHistograms(NamedTuple):
+    opl: Histogram
+    mom: Histogram
+    layer_opl: Histogram
+    layer_mom: Histogram
+
+
+def photon_histograms(detp, mua, n, n_detector, nbins=128) -> PhotonsHistograms:
+    n_media = len(mua)
+    # assert len(mua) == len(n)
+    det_bin = detp.detector_id.astype(np.int32) - 1
+    sidx = np.argsort(det_bin)
+    split_idxs = np.add.accumulate(np.bincount(det_bin, minlength=n_detector))[:-1]
+
+    pp = detp.partial_path.T[sidx]
+    mm = detp.momentum.T[sidx]
+    phi = np.exp(-pp @ mua)
+    layer_opl = pp * n
+    opl = pp @ n
+    layer_mom = mm
+    mom = mm.sum(axis=1)
+
+    split_phi = np.split(phi, split_idxs)
+    split_opl = np.split(opl, split_idxs)
+    split_mom = np.split(mom, split_idxs)
+    split_layer_opl = np.split(layer_opl, split_idxs)
+    split_layer_mom = np.split(layer_mom, split_idxs)
+
+    it = ((
+            np.histogram(o, bins=nbins, weights=p),
+            np.histogram(m, bins=nbins, weights=p),
+            np.histogramdd(ol, bins=nbins, weights=p),
+            np.histogramdd(ml, bins=nbins, weights=p),
+        ) for p, o, m, ol, ml in zip(split_phi, split_opl, split_mom, split_layer_opl, split_layer_mom))
+    return PhotonsHistograms._make(map(lambda h: Histogram._make(map(np.stack, zip(*h))), zip(*it)))
+
+
+def photon_quantiles(detp, mua, n, n_detector, nbins=1024):
+    n_media = len(mua)
+    # assert len(mua) == len(n)
+    det_bin = detp.detector_id.astype(np.int32) - 1
+    sidx = np.argsort(det_bin)
+    split_idxs = np.add.accumulate(np.bincount(det_bin, minlength=n_detector))[:-1]
+
+    pp = detp.partial_path.T[sidx]
+    mm = detp.momentum.T[sidx]
+    phi = np.exp(-pp @ mua)
+    opl = pp @ n
+    mom = mm.sum(axis=1)
+
+    split_phi = np.split(phi, split_idxs)
+    split_opl = np.split(opl, split_idxs)
+    split_mom = np.split(mom, split_idxs)
+    
+    prepend_zero = lambda a: np.concatenate((np.zeros(1), a))
+
+    q = np.linspace(0, 1, nbins)
+    q_phi, q_opl, q_mom = zip(*(
+        (np.quantile(w, q), weighted_quantile(o, w, q), weighted_quantile(m, w, q))
+        for o, m, w in 
+        zip(map(prepend_zero, split_opl), map(prepend_zero, split_mom), map(prepend_zero, split_phi))
+    ))
+
+    return q, np.stack(q_phi), np.stack(q_opl), np.stack(q_mom)
 
 
 @jit(parallel=True)
