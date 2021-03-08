@@ -7,13 +7,6 @@ from itertools import starmap
 from .utils import jit, integrate, gen_impedance, map_tuples
 from .model import model_ss, model_fd, model_g2
 
-"""
-WARNING
-The D and alpha values are not precomputed due to the fact that the
-number of layers isn't known during numba compilation, and the dynamic
-memory allocation needed for storing the precumputed values isn't allowed
-for the cuda target.
-"""
 
 @jit
 def _n_layer_refl(s, z0, zb, ls, D, k2):

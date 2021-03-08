@@ -1,4 +1,5 @@
 from numpy import pi, exp, sqrt
+from scipy.special import erfc
 from .utils import jit, gen_impedance, gen_coeffs
 from numba import vectorize
 
@@ -63,7 +64,7 @@ model_fd = vectorize(_model_fd_sig, target="cpu")(_model_fd)
 
 
 def _model_td(t, rho, mua, musp, n, n_ext, c):
-    """Model Time-Domain Reflectance with Extrapolated Boundary Condition.
+    """Model Time-Domain Reflectance with Partial-Current Boundary Condition.
     Source: "Improved solutions of the steady-state and the time-resolved diffusion equations for reflectance from a semi-infinite turbid medium"
     parameters:
         t := Time of Flight [time]
@@ -74,31 +75,28 @@ def _model_td(t, rho, mua, musp, n, n_ext, c):
         n_ext := External Index of Refraction []
         c := Speed of Light in vacuum [length/time]
     """
-    imp, refl_coeff, flu_coeff = gen_coeffs(n, n_ext)
+    imp = gen_impedance(n / n_ext)
     v = c / n  # Speed of light in turbid medium
     D = 1 / (3 * (mua + musp))  # diffusion constant
     z = 0
-    z0 = 3 * D
-    zb = 2 * D * imp
-    r1_sq = (z - z0) ** 2 + rho ** 2
-    r2_sq = (z + z0 + 2 * zb) ** 2 + rho ** 2
-    reflectance = (
-        0.5
-        * t ** (-5 / 2)
-        * (4 * pi * D * v) ** (-3 / 2)
-        * exp(-mua * v * t)
+    z_0 = 3 * D
+    z_b = 2 * D * imp
+
+    alpha = 4 * D * v * t
+    beta = mua
+    return (
+        -D
+        * v
         * (
-            z0 * exp(-r1_sq / (4 * D * v * t))
-            + (z0 + 2 * zb) * exp(-r2_sq / (4 * D * v * t))
+            pi
+            * sqrt(alpha)
+            * exp((alpha + 2 * z_0 * z_b) ** 2 / (4 * alpha * z_b ** 2))
+            * erfc((alpha + 2 * z_0 * z_b) / (2 * sqrt(alpha) * z_b))
+            - 2 * sqrt(pi) * z_b
         )
+        * exp(-beta * v * t - (rho ** 2 + z_0 ** 2) / alpha)
+        / (pi ** 2 * alpha ** (3 / 2) * z_b ** 2)
     )
-    fluence_rate = (
-        v
-        * (4 * pi * D * v * t) ** (-3 / 2)
-        * exp(-mua * v * t)
-        * (exp(-(r1_sq / (4 * D * v * t))) - exp(-(r2_sq / (4 * D * v * t))))
-    )
-    return flu_coeff * fluence_rate + refl_coeff * reflectance
 _model_td_sig = ["f4(f4, f4, f4, f4, f4, f4, f4)", "f8(f8, f8, f8, f8, f8, f8, f8)"]
 model_td = vectorize(_model_td_sig, target="cpu")(_model_td)
 
