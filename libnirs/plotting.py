@@ -39,6 +39,7 @@ def joint_hist(
     y_pdf: Optional[Callable[[ArrayLike], ArrayLike]] = None,
     pdf_ax_size: Union[int, str] = "15%",
     bins: Union[int, ArrayLike] = 64,
+    weights: Optional[ArrayLike] = None,
     use_contourf: bool = True,
     hist_kwargs: Optional[Dict[str, Any]] = None,
     fill_between_kwargs: Optional[Dict[str, Any]] = None,
@@ -54,15 +55,15 @@ def joint_hist(
         ax = plt.gca()
 
     if x_pdf is None:
-        x_pdf = stats.gaussian_kde(x_sample)
+        x_pdf = stats.gaussian_kde(x_sample, weights=weights)
     if y_pdf is None:
-        y_pdf = stats.gaussian_kde(y_sample)
+        y_pdf = stats.gaussian_kde(y_sample, weights=weights)
     if hist_kwargs is None:
         hist_kwargs = {}
     if fill_between_kwargs is None:
         fill_between_kwargs = {}
 
-    counts, xbins, ybins = np.histogram2d(x_sample, y_sample, bins, density=True)
+    counts, xbins, ybins = np.histogram2d(x_sample, y_sample, bins, density=True, weights=weights)
 
     divider = make_axes_locatable(ax)
     ax_x_pdf = divider.append_axes("top", size=pdf_ax_size, pad=0, sharex=ax)
