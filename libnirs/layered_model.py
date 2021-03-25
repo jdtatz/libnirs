@@ -85,7 +85,7 @@ def fourierBesselJv(omega):
 
 def fft_hankel(integrator, integrator_args, integrator_kwargs, log_limit, npoints, in_ndim=0, is_complex=True):
     """Inverse HankelTransform using Fast Fourier Transform"""
-    sp = np.linspace(-log_limit, log_limit, fft.next_fast_len(npoints, True))
+    sp = np.linspace(-log_limit, log_limit, fft.next_fast_len(npoints, not is_complex))
     dt = sp[1] - sp[0]
     wq = 2 * pi * (fft.fftfreq if is_complex else fft.rfftfreq)(len(sp), dt)
     dw = wq[1] - wq[0]
