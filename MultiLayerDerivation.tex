@@ -1,79 +1,168 @@
+% !TEX program = xelatex
 \documentclass{article}
-\usepackage[utf8]{inputenc}
-\usepackage{amsmath,amssymb}
-\begin{document}
+\usepackage{mathtools}
+\usepackage{diffcoeff}
 
+\newcommand{\diffusion}{\mathcal{D}}
+\newcommand{\vdot}{\boldsymbol{\cdot}}
+\newcommand{\va}[1]{\vec{\mathit{#1}}}
+\newcommand{\vu}[1]{\hat{\mathit{#1}}}
+\newcommand{\at}[2]{{\left.{#1}\right|_{#2}}}
+
+\begin{document}
+Definitions
+\begin{align*}
+    \mu_a &= \text{absorption coefficient} \\
+    \mu_s &= \text{scattering coefficient} \\
+    k &= \text{pseudo-attenuation coefficient} \\
+    \mu_t &= \mu_a + \mu_s \\
+    \mu_s^{\prime} &= \mu_s (1 - g) \\
+    \diffusion &= \frac{1}{3(\mu_a + \mu_s^{\prime})} \\
+    \omega &= 2 \pi f \\
+    \kappa_0 &= \frac{2 \pi}{\lambda} \\
+    \va{r}_0 = z_0 &= 3 \diffusion = \text{effective point source at one transport mean free path into the media} \\
+    \va{r}_b = z_b &= 2 \diffusion \frac{1 + R_J}{1 - R_{\Phi}} = \text{surface impedence factor or the negated extrapolated boundary distance} \\
+    R_{\Phi} &= \int_0^{\pi / 2} 2 \sin(\theta) \cos(\theta) R_F(\cos(\theta)) d\theta = \int_0^1 2 u R_F(u) du \\
+    R_J &= \int_0^{\pi / 2} 3 \sin(\theta) \cos^2(\theta) R_F(\cos(\theta)) d\theta = \int_0^1 3 u^2 R_F(u) du \\
+    P(\vu{s}, \vu{s}^{\prime}) &= P(\vu{s} \vdot \vu{s}^{\prime}) \\
+    g &= \int_{4 \pi} (\vu{s} \vdot \vu{s}^{\prime}) P(\vu{s} \vdot \vu{s}^{\prime}) d\Omega^{\prime} \\
+\end{align*}
+Radiative transfer equation
+\begin{align*}
+    \left[\frac{1}{c}\diffp{}{t} + \vu{s}\vdot \nabla_{r} + \mu_t\right] L(\va{r}, \vu{s}, t) &=
+    \mu_s \int_{4 \pi} L(\va{r}, \vu{s}^{\prime}, t) P(\vu{s}, \vu{s}^{\prime}) d\Omega^{\prime} + S(\va{r}, \vu{s}, t)  &\va{r} &\in \Omega \\
+    \int_{\vu{s}\vdot\vu{n}<0} L(\va{r}, \vu{s}, t) \vu{s}\vdot\vu{n} d\Omega &=
+    \int_{\vu{s}\vdot\vu{n}>0} R_F(\vu{s}\vdot\vu{n}) L(\va{r}, \vu{s}, t) \vu{s}\vdot\vu{n} d\Omega &\va{r} &\in \partial\Omega \\
+    f_{\text{signal}}(\va{r}, t) &= \int_{\vu{s}\vdot\vu{n}>0} \left(1 - R_F(\vu{s}\vdot\vu{n})\right) L(\va{r}, \vu{s}, t) \vu{s}\vdot\vu{n} d\Omega &\va{r} &\in \partial\Omega \\
+\end{align*}
+Correlation transport equation
+\begin{align*}
+    \left[\frac{1}{c}\diffp{}{t} + \vu{s}\vdot \nabla_{r} + \mu_t\right] G_1(\va{r}, \vu{s}, t, \tau) &=
+    \mu_s \int_{4 \pi} G_1(\va{r}, \vu{s}^{\prime}, t, \tau) P(\vu{s}, \vu{s}^{\prime}) g_1^s(\vu{s}, \vu{s}^{\prime}, \tau) d\Omega^{\prime} + S(\va{r}, \vu{s}, t)  &\va{r} &\in \Omega \\
+    \int_{\vu{s}\vdot\vu{n}<0} G_1(\va{r}, \vu{s}, t, \tau) \vu{s}\vdot\vu{n} d\Omega &=
+    \int_{\vu{s}\vdot\vu{n}>0} R_F(\vu{s}\vdot\vu{n}) G_1(\va{r}, \vu{s}, t, \tau) \vu{s}\vdot\vu{n} d\Omega &\va{r} &\in \partial\Omega \\
+    f_{\text{signal}}(\va{r}, t, \tau) &= \int_{\vu{s}\vdot\vu{n}>0} \left(1 - R_F(\vu{s}\vdot\vu{n})\right) G_1(\va{r}, \vu{s}, t, \tau) \vu{s}\vdot\vu{n} d\Omega &\va{r} &\in \partial\Omega \\
+\end{align*}
+Time-Independent Diffusion Approximation
+\begin{align*}
+    \Delta \Phi(\va{r}) - k^2\Phi(\va{r}) &= -\frac{\delta(\va{r} - \va{r}_0)}{\diffusion} &\va{r} &\in \Omega \\
+    \Phi(\va{r}) &= 2 \diffusion \frac{1 + R_J}{1 - R_{\Phi}} \nabla\Phi(\va{r}) \vdot \vu{n} &\va{r} &\in \partial\Omega \\
+    k^2_{\text{CW}} &= \frac{\mu_a}{\diffusion} \\
+    k^2_{\text{FD}} &= \frac{\mu_a + i \omega / c}{\diffusion} \\
+    k^2_{\text{DCS}} &= \frac{\mu_a + \mu_s^{\prime} \kappa_0^2 \left(\alpha \left\langle \Delta r^2 (\tau) \right\rangle\right)/3 }{\diffusion} \\
+    f_{\text{signal}}(\va{r}) &= \frac{1}{2} \frac{1 - R_{\Phi}}{1 + R_J} \Phi(\va{r}) &\va{r} &\in \partial\Omega \\
+\end{align*}
 Start with general steady-state diffusion equations with boundry conditions
 \begin{align*}
-D_1 \Delta \Phi_1(\mathbf{r}) - \mu_{a,1}\Phi_1(\mathbf{r}) &= -\delta(x, y, z - z_0), & z \le l_1 \\
-D_2 \Delta \Phi_2(\mathbf{r}) - \mu_{a,2}\Phi_2(\mathbf{r}) &= 0, & l_1 < z \le l_2 \\
-\vdots \\
-D_i \Delta \Phi_i(\mathbf{r}) - \mu_{a,i}\Phi_i(\mathbf{r}) &= 0, & l_{i-1} < z \le l_i \\
-\vdots \\
-D_n \Delta \Phi_n(\mathbf{r}) - \mu_{a,n}\Phi_n(\mathbf{r}) &= 0, & l_{n-1} < z \\
-D_i &= \frac{1}{3(\mu_{a,i} + \mu^{\prime}_{s,i})} \\
-\Phi_1(x, y, -z_b) &= 0 \\
-\Phi_n(x, y, \infty) &= 0 \\
-\Phi_i(x, y, l_i) &= \Phi_{i+1}(x, y, l_i) \\
-D_i \partial_z \Phi_i(x, y, l_i) &= D_{i+1} \partial_z \Phi_{i+1}(x, y, l_i)
+    \Delta \Phi_1(\mathbf{r}) - k_1^2 \Phi_1(\mathbf{r}) &= -\frac{\delta(x, y, z - z_0)}{\diffusion_1}, & 0 \le z \le l_1 \\
+    \Delta \Phi_2(\mathbf{r}) - k_2^2 \Phi_2(\mathbf{r}) &= 0, & l_1 < z \le l_2 \\
+    \vdots \\
+    \Delta \Phi_i(\mathbf{r}) - k_i^2 \Phi_i(\mathbf{r}) &= 0, & l_{i-1} < z \le l_i \\
+    \vdots \\
+    \Delta \Phi_n(\mathbf{r}) - k_n^2 \Phi_n(\mathbf{r}) &= 0, & l_{n-1} < z \\
+    \diffusion_i &= \frac{1}{3(\mu_{a,i} + \mu^{\prime}_{s,i})} \\
+    \Phi_1(x, y, 0) &= z_b \at{\diffp{\Phi_1(x, y, z)}{z}}{z=0} \\
+    \Phi_n(x, y, \infty) &= 0 \\
+    \Phi_i(x, y, l_i) &= \Phi_{i+1}(x, y, l_i) \\
+    \diffusion_i \partial_z \Phi_i(x, y, l_i) &= \diffusion_{i+1} \partial_z \Phi_{i+1}(x, y, l_i) \\
 \end{align*}
 Now by assuming radial symmetry and by applying zeroth-order Hankel Transform.
 \begin{align*}
-x, y, z &\rightarrow \rho, \psi, z \\
-\Delta = \partial_x + \partial_y + \partial_z &\rightarrow \Delta = \frac{1}{\rho}\partial_\rho(\rho \partial_\rho) 
- + \frac{1}{\rho^2}\partial^2_\psi + \partial^2_z \\
-\partial_\psi \Phi_i(\mathbf{r}) = 0 &\rightarrow \Phi_i(\mathbf{r}) = \Phi_i(\rho, z) \\
-\mathcal{H}_\rho\{{\Phi_i(\rho, z)}\}(s) &= \phi_i(s, z) \\
-\mathcal{H}_{\rho, 0}\{{\Delta\Phi_i(\rho, z)}\}(s) &= (\partial^2_z - s^2)\phi_i(s, z)
+    x, y, z &\rightarrow \rho, \psi, z \\
+    \Delta = \partial_x + \partial_y + \partial_z &\rightarrow \Delta = \frac{1}{\rho}\partial_\rho(\rho \partial_\rho) 
+    + \frac{1}{\rho^2}\partial^2_\psi + \partial^2_z \\
+    \partial_\psi \Phi_i(\mathbf{r}) = 0 &\rightarrow \Phi_i(\mathbf{r}) = \Phi_i(\rho, z) \\
+    \mathcal{H}_{\rho, 0}\{{\Phi_i(\rho, z)}\}(s) &= \phi_i(s, z) \\
+    \mathcal{H}_{\rho, 0}\{{\Delta\Phi_i(\rho, z)}\}(s) &= (\partial^2_z - s^2)\phi_i(s, z) \\
 \end{align*}
 The PDEs then become solvable ODEs.
 \begin{align*}
-d^2_z\phi_1(s, z) - \alpha_1^2\phi_1(s, z) &= -\frac{1}{D_1}\delta(z - z_0), & z \le l_1 \\
-d^2_z\phi_i(s, z) - \alpha_i^2\phi_i(s, z) &= 0, & l_{i-1} < z \le l_i \\
-d^2_z\phi_n(s, z) - \alpha_n^2\phi_n(s, z) &= 0, & l_{n-1} < z \\
-\alpha_i^2 &= s^2 + \frac{\mu_{a,i}}{D_i} \\
-\phi_1(s, -z_b) &= 0 \\
-\phi_n(s, \infty) &= 0 \\
-\phi_i(s, l_i) &= \phi_{i+1}(s, l_i) \\
-D_i \partial_z \phi_i(s, l_i) &= D_{i+1} \partial_z \phi_{i+1}(s, l_i)
+    d^2_z\phi_1(s, z) - \alpha_1^2\phi_1(s, z) &= -\frac{\delta(z - z_0)}{\diffusion_1}, & 0 \le z \le l_1 \\
+    d^2_z\phi_i(s, z) - \alpha_i^2\phi_i(s, z) &= 0, & l_{i-1} < z \le l_i \\
+    d^2_z\phi_n(s, z) - \alpha_n^2\phi_n(s, z) &= 0, & l_{n-1} < z \\
+    \alpha_i^2 &= s^2 + k_i^2 \\
+    \phi_1(s, 0) &= z_b \at{\diff{\phi_1(s, z)}{z}}{z=0} \\
+    \phi_n(s, \infty) &= 0 \\
+    \phi_i(s, l_i) &= \phi_{i+1}(s, l_i) \\
+    \diffusion_i \partial_z \phi_i(s, l_i) &= \diffusion_{i+1} \partial_z \phi_{i+1}(s, l_i) \\
 \end{align*}
-The General solutions along with the extrapolated-boundry condition and the semi-infinite media condition.
+The General solutions along with the partial-current boundry condition and the semi-infinite media condition.
 \begin{align*}
-\phi_1(s, z) &= 2 A_1 e^{-\alpha_1 z_b} \sinh(\alpha_1(zb + z)) + \theta(z-z_0)\frac{\sinh(\alpha_1(z-z_0))}{\alpha_1 D_1}\\
-\phi_i(s, z) &= A_i e^{\alpha_i z} + B_i e^{-\alpha_i z} \\
-\phi_n(s, z) &= B_n e^{-\alpha_n z} \\
+    \phi_1(s, z) &= 2 A_1 \frac{\sinh(\alpha_1 z) + \alpha_1 z_b \cosh(\alpha_1 z)}{\alpha_1 z_b -1} - \theta(z-z_0)\frac{\sinh(\alpha_1(z-z_0))}{\alpha_1 \diffusion_1}\\
+    \phi_i(s, z) &= A_i e^{\alpha_i z} + B_i e^{-\alpha_i z} \\
+    \phi_n(s, z) &= B_n e^{-\alpha_n z} \\
 \end{align*}
 Which after applying the inter-layer boundry conditions gives a linear system of $2(n-1)$ equations for the 
 $2(n-1)$ constants $A_i$ and $B_i$.
 \begin{align*}
-2 A_1 e^{-\alpha_1 z_b} \sinh(\alpha_1(zb + l_1)) - \frac{\sinh(\alpha_1(l_1-z_0))}{\alpha_1 D_1} &=
-A_2 e^{\alpha_2 l_1} + B_2 e^{-\alpha_2 l_1} \\
-2 \alpha_1 D_1 A_1 e^{-\alpha_1 z_b} \cosh(\alpha_1(zb + l_1)) - \cosh(\alpha_1(l_1-z_0)) &=
-A_2 \alpha_2 D_2 e^{\alpha_2 l_1} - B_2 \alpha_2 D_2 e^{-\alpha_2 l_1} \\
-\vdots \\
-A_i e^{\alpha_i l_i} + B_i e^{-\alpha_i l_i} &= A_{i+1} e^{\alpha_{i+1} l_i} + B_{i+1} e^{-\alpha_{i+1} l_i} \\
-A_i \alpha_i D_i e^{\alpha_i l_i} - B_i \alpha_i D_i e^{-\alpha_i l_i} &= A_{i+1} \alpha_{i+1} D_{i+1} e^{\alpha_{i+1} l_i} - \alpha_{i+1} D_{i+1} B_{i+1} e^{-\alpha_{i+1} l_i} \\
-\vdots \\
-A_{n-1} e^{\alpha_{n-1} l_{n-1}} + B_{n-1} e^{-\alpha_{n-1} l_{n-1}} &= B_n e^{-\alpha_n l_{n-1}} \\
-A_{n-1} \alpha_{n-1} D_{n-1} e^{\alpha_{n-1} l_{n-1}} - B_{n-1} \alpha_{n-1} D_{n-1} e^{-\alpha_{n-1} l_{n-1}} &= - \alpha_n D_n B_n e^{-\alpha_n l_{n-1}}
+    2 A_1 \frac{ \sinh \left(\alpha_1 l_1\right)+\alpha_1 z_b \cosh \left(\alpha_1 l_1\right)}{\alpha_1 z_b-1}
+    -\frac{\sinh \left(\alpha_1 (l_1-z_0)\right)}{\alpha_1 \diffusion_1} &=
+    A_2 e^{\alpha_2 l_1} + B_2 e^{-\alpha_2 l_1} \\
+    2 A_1 \alpha_1 \diffusion_1 \frac{\cosh \left(\alpha_1 l_1\right)+\alpha _1 z_b \sinh \left(\alpha _1 l_1\right)}{\alpha _1 z_b-1}
+    - \cosh(\alpha_1(l_1-z_0)) &=
+    A_2 \alpha_2 \diffusion_2 e^{\alpha_2 l_1} - B_2 \alpha_2 \diffusion_2 e^{-\alpha_2 l_1} \\
+    \vdots \\
+    A_i e^{\alpha_i l_i} + B_i e^{-\alpha_i l_i} &= A_{i+1} e^{\alpha_{i+1} l_i} + B_{i+1} e^{-\alpha_{i+1} l_i} \\
+    A_i \alpha_i \diffusion_i e^{\alpha_i l_i} - B_i \alpha_i \diffusion_i e^{-\alpha_i l_i} &= A_{i+1} \alpha_{i+1} \diffusion_{i+1} e^{\alpha_{i+1} l_i} - \alpha_{i+1} \diffusion_{i+1} B_{i+1} e^{-\alpha_{i+1} l_i} \\
+    \vdots \\
+    A_{n-1} e^{\alpha_{n-1} l_{n-1}} + B_{n-1} e^{-\alpha_{n-1} l_{n-1}} &= B_n e^{-\alpha_n l_{n-1}} \\
+    A_{n-1} \alpha_{n-1} \diffusion_{n-1} e^{\alpha_{n-1} l_{n-1}} - B_{n-1} \alpha_{n-1} \diffusion_{n-1} e^{-\alpha_{n-1} l_{n-1}} &= - \alpha_n \diffusion_n B_n e^{-\alpha_n l_{n-1}} \\
 \end{align*}
 Then through recursive subsition it admits a recurisve solution
 \begin{align*}
-k_{n-1} &= \frac{(\alpha_{n-1}D_{n-1}-\alpha_n D_n)e^{-l_{n-1}(\alpha_{n-1} + \alpha_n)}}{(\alpha_{n-1}D_{n-1}+\alpha_n D_n)e^{l_{n-1}(\alpha_{n-1} - \alpha_n)}} \\
-k_i &= \frac{
-(\alpha_i D_i + \alpha_{i+1} D_{i+1})e^{-l_i(\alpha_i - \alpha_{i+1})} k +
-(\alpha_i D_i - \alpha_{i+1} D_{i+1})e^{-l_i(\alpha_i + \alpha_{i+1})}
-}{
-(\alpha_i D_i - \alpha_{i+1} D_{i+1})e^{l_i(\alpha_i + \alpha_{i+1})} k +
-(\alpha_i D_i + \alpha_{i+1} D_{i+1})e^{l_i(\alpha_i - \alpha_{i+1})}} \\
-A_1 &= \frac{
-e^{\alpha_1 z_b} (\alpha_1 D_1 (1 + e^{2 l_1 \alpha_2} k_2) \cosh(\alpha_1 (l_1 - z_0)) +
-    \alpha_2 D_2 (1 - e^{2 l_1 \alpha_2} k_2) \sinh(\alpha_1 (l_1 - z_0)))
-}{
-2 \alpha_1 D_1 (\alpha_1 D_1 (1 + e^{2 l_1 \alpha_2} k_2) \cosh(\alpha_1 (l_1 + z_b)) +
-    \alpha_2 D_2 (1 - e^{2 l_1 \alpha_2} k_2) \sinh(\alpha_1 (l_1 + z_b)))
-} \\
-\Phi_1 &= \mathcal{H}^{-1}_s\{{\phi_1(s, z)}\}(\rho) \\
-&= \mathcal{H}^{-1}_s\{{2 A_1 e^{-\alpha_1 z_b} \sinh(\alpha_1(zb + z)) + \theta(z-z_0)\frac{\sinh(\alpha_1(z-z_0))}{\alpha_1 D_1}}\}(\rho)
+    k_{n-1} &= \frac{(\alpha_{n-1}\diffusion_{n-1}-\alpha_n \diffusion_n)e^{-l_{n-1}(\alpha_{n-1} + \alpha_n)}}{(\alpha_{n-1}\diffusion_{n-1}+\alpha_n \diffusion_n)e^{l_{n-1}(\alpha_{n-1} - \alpha_n)}} \\
+    k_i &= \frac{
+    (\alpha_i \diffusion_i + \alpha_{i+1} \diffusion_{i+1})e^{-l_i(\alpha_i - \alpha_{i+1})} k_{i+1} +
+    (\alpha_i \diffusion_i - \alpha_{i+1} \diffusion_{i+1})e^{-l_i(\alpha_i + \alpha_{i+1})}
+    }{
+    (\alpha_i \diffusion_i - \alpha_{i+1} \diffusion_{i+1})e^{l_i(\alpha_i + \alpha_{i+1})} k_{i+1} +
+    (\alpha_i \diffusion_i + \alpha_{i+1} \diffusion_{i+1})e^{l_i(\alpha_i - \alpha_{i+1})}} \\
+    A_1 &= \frac{
+    e^{\alpha_1 z_b} (\alpha_1 \diffusion_1 (1 + e^{2 l_1 \alpha_2} k_2) \cosh(\alpha_1 (l_1 - z_0)) +
+        \alpha_2 \diffusion_2 (1 - e^{2 l_1 \alpha_2} k_2) \sinh(\alpha_1 (l_1 - z_0)))
+    }{
+    2 \alpha_1 \diffusion_1 (\alpha_1 \diffusion_1 (1 + e^{2 l_1 \alpha_2} k_2) \cosh(\alpha_1 (l_1 + z_b)) +
+        \alpha_2 \diffusion_2 (1 - e^{2 l_1 \alpha_2} k_2) \sinh(\alpha_1 (l_1 + z_b)))
+    } \\
+    \Phi_1 &= \mathcal{H}^{-1}_{s,0}\left\lbrace{\phi_1(s, z)}\right\rbrace(\rho) \\
+    &= \mathcal{H}^{-1}_{s,0}\left\lbrace{2 A_1 e^{-\alpha_1 z_b} \sinh(\alpha_1(zb + z)) + \theta(z-z_0)\frac{\sinh(\alpha_1(z-z_0))}{\alpha_1 \diffusion_1}}\right\rbrace(\rho) \\
+    f_\text{signal} &= \mathcal{H}^{-1}_{s,0}\left\lbrace \frac{\diffusion_1}{z_b} \phi_1(s, 0) \right\rbrace(\rho) \\
+\end{align*}
+$
+A_1 = \frac{\left(\alpha _1 z_b-1\right) \left(\alpha _1 \diffusion_1 \left(1+k_2 e^{2 \alpha _2 l_1}\right) \cosh \left(\alpha _1
+ \left(l_1-z_0\right)\right)-\alpha _2 \diffusion_2 \left(k_2 e^{2 \alpha _2 l_1}-1\right) \sinh \left(\alpha _1 \left(l_1-z_0\right)\right)\right)
+ }{2 \alpha _1 \diffusion_1 \left(\alpha _1 \diffusion_1 \left(1+k_2e^{2 \alpha _2 l_1}\right) \left(\cosh \left(\alpha _1 l_1\right)+\alpha _1 
+ z_b \sinh \left(\alpha _1 l_1\right)\right)-\alpha _2 \diffusion_2 \left(k_2 e^{2 \alpha _2 l_1}-1\right) \left(\sinh 
+ \left(\alpha _1 l_1\right)+\alpha _1 z_b \cosh \left(\alpha _1 l_1\right)\right)\right)}
+$
+
+
+$
+\Phi_1 = \mathcal{H}^{-1}_{s,0}\{2 A_1 \frac{\sinh(\alpha_1 z) + \alpha_1 z_b \cosh(\alpha_1 z)}{\alpha_1 z_b -1} - \theta(z-z_0)\frac{\sinh(\alpha_1(z-z_0))}{\alpha_1 \diffusion_1}\}(\rho)
+$
+\begin{align*}
+    [k]_{n-1} &= 
+    \begin{pmatrix}
+        (\alpha_{n-1}\diffusion_{n-1}-\alpha_n \diffusion_n)e^{-l_{n-1}(\alpha_{n-1} + \alpha_n)} \\
+        (\alpha_{n-1}\diffusion_{n-1}+\alpha_n \diffusion_n)e^{l_{n-1}(\alpha_{n-1} - \alpha_n)}
+    \end{pmatrix}\\
+    [K]_{n-1} &=
+    \begin{pmatrix}
+        e^{2 l_{n-1} \alpha _{n-1}} \left(\alpha _{n-1} \diffusion_{n-1}+\alpha _n \diffusion_n\right)\\
+        \alpha _{n-1} \diffusion_{n-1}-\alpha _n \diffusion_n
+    \end{pmatrix}\\
+    [K]_i &=
+    \begin{pmatrix}
+        \left(\alpha _i \diffusion_i+\alpha _{i+1} \diffusion_{i+1}\right) e^{2 \alpha _i l_i} & \left(\alpha _i \diffusion_i-\alpha _{i+1} \diffusion_{i+1}\right) e^{2 \alpha _i l_i+2 \alpha _{i+1} l_i} \\
+        \alpha _i \diffusion_i-\alpha _{i+1} \diffusion_{i+1} & \left(\alpha _i \diffusion_i+\alpha _{i+1} \diffusion_{i+1}\right) e^{2 \alpha _{i+1} l_i} \\
+    \end{pmatrix} \\
+    [K]_1 &=
+    \begin{pmatrix}
+        \left(\alpha _1 z_b-1\right) \left(\alpha _2 \diffusion_2 \sinh \left(\alpha _1 \left(l_1-z_0\right)\right)+\alpha _1 \diffusion_1 \cosh \left(\alpha _1 \left(l_1-z_0\right)\right)\right) & e^{2 \alpha _2 l_1} \left(\alpha _1 z_b-1\right) \left(\alpha _1 \diffusion_1 \cosh \left(\alpha _1 \left(l_1-z_0\right)\right)-\alpha _2 \diffusion_2 \sinh \left(\alpha _1 \left(l_1-z_0\right)\right)\right) \\
+        2 \alpha _1 \diffusion_1 \left(\alpha _1 \diffusion_1 \left(\cosh \left(\alpha _1 l_1\right)+\alpha _1 z_b \sinh \left(\alpha _1 l_1\right)\right)+\alpha _2 \diffusion_2 \left(\sinh \left(\alpha _1 l_1\right)+\alpha _1 z_b \cosh \left(\alpha _1 l_1\right)\right)\right) & 2 \alpha _1 \diffusion_1 e^{2 \alpha _2 l_1} \left(\alpha _1 \diffusion_1 \left(\cosh \left(\alpha _1 l_1\right)+\alpha _1 z_b \sinh \left(\alpha _1 l_1\right)\right)-\alpha _2 \diffusion_2 \left(\sinh \left(\alpha _1 l_1\right)+\alpha _1 z_b \cosh \left(\alpha _1 l_1\right)\right)\right) \\
+    \end{pmatrix} \\
+    \begin{pmatrix} a_1 \\ b_1 \end{pmatrix}
+    &= [K]_1 \left(\prod_{i=2}^{n-2} [K]_i \right) [K]_{n-1} \\
+    A_1 &= \frac{a_1}{b_1} \\
 \end{align*}
 \end{document}
