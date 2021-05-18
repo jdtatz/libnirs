@@ -1,4 +1,3 @@
-import libnirs.overrides
 from .utils import fma, integrate, gen_impedance, gen_coeffs, qrng
 from .extinction_coeffs import water, oxyhemoglobin, deoxyhemoglobin, soy_oil, get_extinction_coeffs
 from .model import model_ss, model_fd, model_td, model_g1, model_g2

@@ -4,17 +4,20 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "libnirs"
-version = "0.6"
+version = "0.6.1"
 description = "Library for NIRS analysis"
 license = "Proprietary"
-authors = ["Julia Tatz <tatz.j@northeastern.edu>"]
+authors = ["Julia Tatz <julia.tatz@childrens.harvard.edu>"]
 include = ['libnirs/extc.npz']
 
 [tool.poetry.dependencies]
 python = ">=3.7"
 numpy = ">=1.20"
 scipy = ">=1.6"
-matplotlib = ">=3.3"
-numba = ">=0.52"
-xarray = ">=0.16"
-pint = ">=0.16"
+matplotlib = ">=3.4"
+numba = ">=0.53"
+numba-scipy = ">=0.3"
+xarray = ">=0.18"
+
+[tool.poetry.dev-dependencies]
+sympy = ">=1"

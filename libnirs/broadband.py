@@ -1,7 +1,6 @@
 from __future__ import annotations
 import numpy as np
 import xarray as xr
-from pint import get_application_registry
 from pymcx import MCX, SaveFlags, SrcType, DetectedPhotons
 from typing import NamedTuple, Iterator, Tuple, List, Generator
 from .utils import jit
@@ -211,9 +210,7 @@ def analyze_mcx(detp, prop, tof_domain, tau, wavelength, BFi, freq, ntof, nmedia
         momDist[detBins[i], tofBins[i]] += mom_prep[i]
 
 
-def run_mcx(cfg, run_count, tof_domain, tau, wavelength, BFi, freq, fslicer, ureg=None):
-    if ureg is None:
-        ureg = get_application_registry()
+def run_mcx(cfg, run_count, tof_domain, tau, wavelength, BFi, freq, fslicer):
     seeds = np.random.randint(0xFFFF, size=run_count)
     ndet, ntof, nmedia = len(cfg.detpos), len(tof_domain) - 1, len(cfg.prop) - 1
     phiTD = np.zeros((ndet, ntof), np.float64)
@@ -246,16 +243,16 @@ def run_mcx(cfg, run_count, tof_domain, tau, wavelength, BFi, freq, fslicer, ure
             "seeds": (["runs"], seeds),
             "Photons": (["detector", "time"], pcounts),
             "PhiTD": (["detector", "time"], phiTD / nphoton, {"long_name": "Φ"}),
-            "PhiPhase": (["detector"], phiPhase, {"units": str(ureg.rad), "long_name": "Φ Phase"}),
+            "PhiPhase": (["detector"], phiPhase, {"units": "radian", "long_name": "Φ Phase"}),
             "PhiDist": (["detector", "time", "layer"], phiDist, {"long_name": "Φ Distribution"}),
             "g1": (["detector", "tau"], g1),
             "fluence": (["x", "y", "z", "time"], fslice),
             "momDist": (["detector", "time", "layer"], momDist, {"long_name": "Momentum-Transfer Distribution"})
         },
         coords={
-            "wavelength": ([], wavelength, {"units": str(ureg.nanometer), "long_name": "λ"}),
-            "time": (["time"], (tof_domain[:-1] + tof_domain[1:]) / 2, {"units": str(ureg.second)}),
-            "tau": (["tau"], tau, {"units": str(ureg.second), "long_name": "τ"}),
+            "wavelength": ([], wavelength, {"units": "nanometer", "long_name": "λ"}),
+            "time": (["time"], (tof_domain[:-1] + tof_domain[1:]) / 2, {"units": "second"}),
+            "tau": (["tau"], tau, {"units": "second", "long_name": "τ"}),
         }
     )
 

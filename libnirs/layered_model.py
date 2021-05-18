@@ -1,7 +1,7 @@
 import numpy as np
 from numpy import pi, exp, sqrt, sinh, cosh
 from numba import guvectorize
-from scipy import fft
+import scipy
 from scipy.special import j0, gamma
 from itertools import starmap
 from .utils import jit, integrate, gen_impedance, map_tuples
@@ -47,8 +47,13 @@ def _n_layer_refl(s, z0, zb, ls, D, k2):
     return signal
 
 
-@guvectorize(['(f8, f8, f8, f8[:], f8[:], f8[:], f8[:])', '(c16, c16, c16, c16[:], c16[:], c16[:], c16[:])'], '(),(),(),(n),(n),(n)->()', nopython=True, target='cpu')
+@guvectorize('(),(),(),(n),(n),(n)->()', nopython=True, target='cpu')
 def _vectorize_n_layer_refl(s, z0, zb, ls, D, k2, result):
+    result[()] = _n_layer_refl(s, z0, zb, ls, D, k2)
+
+
+@guvectorize('(),(),(),(n),(n),(n)->()', nopython=True, target='cuda')
+def _cuda_vectorize_n_layer_refl(s, z0, zb, ls, D, k2, result):
     result[()] = _n_layer_refl(s, z0, zb, ls, D, k2)
 
 
@@ -59,7 +64,7 @@ def _D(mua, musp):
 
 @jit
 def _refl_integrator(s, rho, z0, zb, ls, D, k2):
-    """Inverse HankelTransform"""
+    """Naive Inverse HankelTransform"""
     return s*j0(s*rho)*_n_layer_refl(s, z0, zb, ls, D, k2)
 
 
@@ -83,9 +88,11 @@ def fourierBesselJv(omega):
     return gamma((1 - 1j * omega) / 2) / gamma((1 + 1j * omega) / 2) * 2**(-1j * omega)
 
 
-def fft_hankel(integrator, integrator_args, integrator_kwargs, log_limit, npoints, in_ndim=0, is_complex=True):
+def fft_hankel(integrator, integrator_args, integrator_kwargs, log_limit, npoints, in_ndim=0, is_complex=True, fft=scipy.fft):
     """Inverse HankelTransform using Fast Fourier Transform"""
-    sp = np.linspace(-log_limit, log_limit, fft.next_fast_len(npoints, not is_complex))
+    if hasattr(fft, "next_fast_len"):
+        npoints = fft.next_fast_len(npoints, not is_complex)
+    sp = np.linspace(-log_limit, log_limit, npoints)
     dt = sp[1] - sp[0]
     wq = 2 * pi * (fft.fftfreq if is_complex else fft.rfftfreq)(len(sp), dt)
     dw = wq[1] - wq[0]
@@ -111,7 +118,7 @@ def fft_hankel(integrator, integrator_args, integrator_kwargs, log_limit, npoint
     return sp, hres
 
 
-def _refl_fft_hankel(z0, zb, depths, D, k2, log_limit, npoints):
+def _refl_fft_hankel(z0, zb, depths, D, k2, log_limit, npoints, use_gpu=False):
     in_ndim = np.broadcast(*D, *k2, *depths).ndim
     move_tuple_axis = lambda tup: np.moveaxis(np.broadcast_arrays(*tup), 0, -1)
     depths = move_tuple_axis((*depths, np.inf))
@@ -120,7 +127,40 @@ def _refl_fft_hankel(z0, zb, depths, D, k2, log_limit, npoints):
     is_complex = np.iscomplexobj(k2)
     contiguous_expand = lambda a: np.ascontiguousarray(_expand_dims(a, axis=in_ndim))
     args = (contiguous_expand(a) for a in (z0, zb, depths, D, k2))
-    return fft_hankel(_vectorize_n_layer_refl, args, dict(axis=-1), log_limit, npoints, in_ndim, is_complex=is_complex)
+    if use_gpu:
+        import cupy
+        refl = _cuda_vectorize_n_layer_refl
+        args = map(cupy.asarray, args)
+        fft = cupy.fft
+    else:
+        refl = _vectorize_n_layer_refl
+        fft = scipy.fft
+    sp, hres = fft_hankel(refl, args, dict(axis=-1), log_limit, npoints, in_ndim, is_complex=is_complex, fft=fft)
+    if use_gpu:
+        import cupy
+        sp = cupy.asnumpy(sp)
+        hres = cupy.asnumpy(hres)
+    return sp, hres
+
+
+def _deprecated(func):
+    """This is a decorator which can be used to mark functions
+    as deprecated. It will result in a warning being emitted
+    when the function is used."""
+    import warnings
+    import functools
+
+    reason = "use fft version instead, naive hankel tranform integration has uncontrollable numerical error"
+
+    @functools.wraps(func)
+    def new_func(*args, **kwargs):
+        warnings.simplefilter('always', DeprecationWarning)  # turn off filter
+        warnings.warn(f"Call to deprecated function {func.__name__} ({reason}).",
+                      category=DeprecationWarning,
+                      stacklevel=2)
+        warnings.simplefilter('default', DeprecationWarning)  # reset filter
+        return func(*args, **kwargs)
+    return new_func
 
 
 @jit
@@ -128,14 +168,14 @@ def _ss_k2(mua, D):
     return mua / D
 
 
-@jit
+@_deprecated
 def model_nlayer_ss(rho, mua, musp, depths, n, n_ext=1, int_limit=10, int_divs=10):
     """Model Steady-State Reflectance in N Layers with Partial-Current Boundary Condition.
     Source: "Noninvasive determination of the optical properties of two-layered turbid media"
     parameters:
         rho := Source-Detector Seperation [length]
-        mua := N Absorption Coefficents [1/length]
-        musp := N Reduced Scattering Coefficents [1/length]
+        mua := N Absorption Coefficients [1/length]
+        musp := N Reduced Scattering Coefficients [1/length]
         depths := N-1 Layer Depths
         n := Media Index of Refraction []
         n_ext := External Index of Refraction []
@@ -153,17 +193,17 @@ def model_nlayer_ss(rho, mua, musp, depths, n, n_ext=1, int_limit=10, int_divs=1
     return integrate(_refl_integrator, 0, int_limit, int_divs, (rho, z0, zb, depths, D, k2)) / (2*pi)
 
 
-def model_nlayer_ss_fft(mua, musp, depths, n, n_ext=1, log_limit=15, npoints=512):
+def model_nlayer_ss_fft(mua, musp, depths, n, n_ext=1, log_limit=15, npoints=512, use_gpu=False):
     """Model Steady-State Reflectance in N Layers with Partial-Current Boundary Condition.
     Source: "Noninvasive determination of the optical properties of two-layered turbid media"
     parameters:
-        mua := N Absorption Coefficents [1/length]
-        musp := N Reduced Scattering Coefficents [1/length]
+        mua := N Absorption Coefficients [1/length]
+        musp := N Reduced Scattering Coefficients [1/length]
         depths := N-1 Layer Depths
         n := Media Index of Refraction []
         n_ext := External Index of Refraction []
         log_limit := Log-Space Integration Limit for fft []
-        npoints := Minimum number of points to evalulate for fft []
+        npoints := Minimum number of points to evaluate for fft []
     """
     imp = gen_impedance(n / n_ext)
     D = _map_tuples(_D, mua, musp)
@@ -172,7 +212,7 @@ def model_nlayer_ss_fft(mua, musp, depths, n, n_ext=1, log_limit=15, npoints=512
     # assert np.all(depths[0] >= z0)
     zb = 2*D1*imp
     k2 = _map_tuples(_ss_k2, mua, D)
-    sp, h = _refl_fft_hankel(z0, zb, depths, D, k2, log_limit, npoints)
+    sp, h = _refl_fft_hankel(z0, zb, depths, D, k2, log_limit, npoints, use_gpu)
     h /= 2 * pi
     return np.squeeze(sp), h
 
@@ -182,16 +222,16 @@ def _fd_k2(mua, D, wave):
     return (wave + mua) / D
 
 
-@jit
+@_deprecated
 def model_nlayer_fd(rho, mua, musp, depths, freq, c, n, n_ext=1, int_limit=10, int_divs=10):
-    """Model Frequncy-Domain Reflectance in N Layers with Partial-Current Boundary Condition.
+    """Model Frequency-Domain Reflectance in N Layers with Partial-Current Boundary Condition.
     Source: "Noninvasive determination of the optical properties of two-layered turbid media"
     parameters:
         rho := Source-Detector Seperation [length]
         mua := N Absorption Coefficents [1/length]
         musp := N Reduced Scattering Coefficents [1/length]
         depths := N-1 Layer Depths
-        freq := Frequncy of Source [1/time]
+        freq := Frequency of Source [1/time]
         c := Speed of Light in vacuum [length/time]
         n := Media Index of Refraction []
         n_ext := External Index of Refraction []
@@ -212,19 +252,19 @@ def model_nlayer_fd(rho, mua, musp, depths, freq, c, n, n_ext=1, int_limit=10, i
     return integrate(_refl_integrator, 0, int_limit, int_divs, (rho, z0, zb, depths, D, k2)) / (2*pi)
 
 
-def model_nlayer_fd_fft(mua, musp, depths, freq, c, n, n_ext=1, log_limit=15, npoints=512):
-    """Model Frequncy-Domain Reflectance in N Layers with Partial-Current Boundary Condition.
+def model_nlayer_fd_fft(mua, musp, depths, freq, c, n, n_ext=1, log_limit=15, npoints=512, use_gpu=False):
+    """Model Frequency-Domain Reflectance in N Layers with Partial-Current Boundary Condition.
     Source: "Noninvasive determination of the optical properties of two-layered turbid media"
     parameters:
         mua := N Absorption Coefficents [1/length]
         musp := N Reduced Scattering Coefficents [1/length]
         depths := N-1 Layer Depths
-        freq := Frequncy of Source [1/time]
+        freq := Frequency of Source [1/time]
         c := Speed of Light in vacuum [length/time]
         n := Media Index of Refraction []
         n_ext := External Index of Refraction []
         log_limit := Log-Space Integration Limit for fft []
-        npoints := Minimum number of points to evalulate for fft []
+        npoints := Minimum number of points to evaluate for fft []
     """
     imp = gen_impedance(n / n_ext)
     D = _map_tuples(_D, mua, musp)
@@ -236,7 +276,7 @@ def model_nlayer_fd_fft(mua, musp, depths, freq, c, n, n_ext=1, log_limit=15, np
     v = c / n
     wave = w/v*1j
     k2 = _map_tuples(lambda a, d: _fd_k2(a, d, wave), mua, D)
-    sp, h = _refl_fft_hankel(z0, zb, depths, D, k2, log_limit, npoints)
+    sp, h = _refl_fft_hankel(z0, zb, depths, D, k2, log_limit, npoints, use_gpu)
     h /= 2 * pi
     return np.squeeze(sp), h
 
@@ -246,7 +286,7 @@ def _g1_k2(mua, musp, D, BFi, k0, tau):
     return (mua + 2 * musp * k0**2 * BFi * tau) / D
 
 
-@jit
+@_deprecated
 def model_nlayer_g1(rho, tau, mua, musp, depths, BFi, wavelength, n, n_ext=1, tau_0=0, int_limit=10, int_divs=10):
     """Model g1 (autocorelation) for Diffuse Correlation Spectroscopy in N Layers with Partial-Current Boundary Condition.
     Source1: "Noninvasive determination of the optical properties of two-layered turbid media"
@@ -281,7 +321,7 @@ def model_nlayer_g1(rho, tau, mua, musp, depths, BFi, wavelength, n, n_ext=1, ta
     return g1
 
 
-def model_nlayer_g1_fft(tau, mua, musp, depths, BFi, wavelength, n, n_ext=1, tau_0=0, log_limit=15, npoints=512):
+def model_nlayer_g1_fft(tau, mua, musp, depths, BFi, wavelength, n, n_ext=1, tau_0=0, log_limit=15, npoints=512, use_gpu=False):
     """Model g1 (autocorelation) for Diffuse Correlation Spectroscopy in N Layers with Partial-Current Boundary Condition.
     Source1: "Noninvasive determination of the optical properties of two-layered turbid media"
     Source2: "Diffuse optics for tissue monitoring and tomography"
@@ -296,7 +336,7 @@ def model_nlayer_g1_fft(tau, mua, musp, depths, BFi, wavelength, n, n_ext=1, tau
         n_ext := External Index of Refraction []
         tau_0 := The first tau for normalization [time]
         log_limit := Log-Space Integration Limit for fft []
-        npoints := Minimum number of points to evalulate for fft []
+        npoints := Minimum number of points to evaluate for fft []
     """
     imp = gen_impedance(n / n_ext)
     D = _map_tuples(_D, mua, musp)
@@ -307,13 +347,13 @@ def model_nlayer_g1_fft(tau, mua, musp, depths, BFi, wavelength, n, n_ext=1, tau
     k0 = 2 * pi * n / wavelength
     k2 = _map_tuples(lambda a, sp, d, b: _g1_k2(a, sp, d, b, k0, tau), mua, musp, D, BFi)
     k2_norm = _map_tuples(lambda a, sp, d, b: _g1_k2(a, sp, d, b, k0, tau_0), mua, musp, D, BFi)
-    sp, h = _refl_fft_hankel(z0, zb, depths, D, k2, log_limit, npoints)
-    _sp, h_norm = _refl_fft_hankel(z0, zb, depths, D, k2_norm, log_limit, npoints)
+    sp, h = _refl_fft_hankel(z0, zb, depths, D, k2, log_limit, npoints, use_gpu)
+    _sp, h_norm = _refl_fft_hankel(z0, zb, depths, D, k2_norm, log_limit, npoints, use_gpu)
     g1 = h / h_norm
     return np.squeeze(sp), g1
 
 
-@jit
+@_deprecated
 def model_nlayer_g2(rho, tau, mua, musp, depths, BFi, wavelength, n, n_ext=1, beta=0.5, tau_0=0, int_limit=10, int_divs=10):
     """Model g2 (autocorelation) for Diffuse Correlation Spectroscopy in N Layers with Partial-Current Boundary Condition.
     Source1: "Noninvasive determination of the optical properties of two-layered turbid media"
@@ -333,5 +373,28 @@ def model_nlayer_g2(rho, tau, mua, musp, depths, BFi, wavelength, n, n_ext=1, be
         int_limit := Integration Limit [length]
         int_divs := Number of subregions to integrate over []
     """
-    g1 = model_nlayer_g2(rho, tau, mua, musp, depths, BFi, wavelength, n, n_ext, tau_0, int_limit, int_divs)
+    g1 = model_nlayer_g1(rho, tau, mua, musp, depths, BFi, wavelength, n, n_ext, tau_0, int_limit, int_divs)
     return 1 + beta * g1**2
+
+
+def model_nlayer_g2_fft(tau, mua, musp, depths, BFi, wavelength, n, n_ext=1, tau_0=0, log_limit=15, npoints=512, use_gpu=False):
+    """Model g2 (autocorelation) for Diffuse Correlation Spectroscopy in N Layers with Partial-Current Boundary Condition.
+    Source1: "Noninvasive determination of the optical properties of two-layered turbid media"
+    Source2: "Diffuse optics for tissue monitoring and tomography"
+    parameters:
+        rho := Source-Detector Seperation [length]
+        tau := Correlation Time [time]
+        mua := N Absorption Coefficents [1/length]
+        musp := N Reduced Scattering Coefficents [1/length]
+        depths := N-1 Layer Depths
+        BFi := N Blood Flow indices []
+        wavelength := Measurement Wavelength [length]
+        n := Media Index of Refraction []
+        n_ext := External Index of Refraction []
+        beta := Beta derived for Siegert relation []
+        tau_0 := The first tau for normalization [time]
+        log_limit := Log-Space Integration Limit for fft []
+        npoints := Minimum number of points to evaluate for fft []
+    """
+    sp, g1 = model_nlayer_g1_fft(tau, mua, musp, depths, BFi, wavelength, n, n_ext, tau_0, log_limit, npoints, use_gpu)
+    return sp, 1 + beta * g1**2
