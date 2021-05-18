@@ -1,7 +1,7 @@
 import numpy as np
 from numpy import pi, exp, sqrt, sinh, cosh
 from numba import guvectorize
-import scipy
+import scipy.fft
 from scipy.special import j0, gamma
 from itertools import starmap
 from .utils import jit, integrate, gen_impedance, map_tuples
@@ -52,9 +52,19 @@ def _vectorize_n_layer_refl(s, z0, zb, ls, D, k2, result):
     result[()] = _n_layer_refl(s, z0, zb, ls, D, k2)
 
 
-@guvectorize('(),(),(),(n),(n),(n)->()', nopython=True, target='cuda')
-def _cuda_vectorize_n_layer_refl(s, z0, zb, ls, D, k2, result):
-    result[()] = _n_layer_refl(s, z0, zb, ls, D, k2)
+_cuda_vectorize_n_layer_refl_fn = None
+
+def _get_cuda_vectorize_n_layer_refl():
+    global _cuda_vectorize_n_layer_refl_fn
+
+    if _cuda_vectorize_n_layer_refl_fn is None:
+        _ty_sig = lambda ty: f'({ty}, {ty}, {ty}, {ty}[:], {ty}[:], {ty}[:], {ty}[:])'
+
+        @guvectorize([_ty_sig('f4'), _ty_sig('f8'), _ty_sig('c8'), _ty_sig('c16')], '(),(),(),(n),(n),(n)->()', nopython=True, target='cuda')
+        def _cuda_vectorize_n_layer_refl(s, z0, zb, ls, D, k2, result):
+            result[()] = _n_layer_refl(s, z0, zb, ls, D, k2)
+        _cuda_vectorize_n_layer_refl_fn = _cuda_vectorize_n_layer_refl
+    return _cuda_vectorize_n_layer_refl_fn
 
 
 @jit
@@ -73,7 +83,7 @@ def _map_tuples(func, *tuples):
 
 
 def _expand_dims(arr, axis=0):
-    return np.expand_dims(arr, axis=axis) if np.shape(arr) is not () else arr
+    return np.expand_dims(arr, axis=axis) if np.shape(arr) != () else arr
 
 
 def _expand_last_dim(arr):
@@ -129,7 +139,7 @@ def _refl_fft_hankel(z0, zb, depths, D, k2, log_limit, npoints, use_gpu=False):
     args = (contiguous_expand(a) for a in (z0, zb, depths, D, k2))
     if use_gpu:
         import cupy
-        refl = _cuda_vectorize_n_layer_refl
+        refl = _get_cuda_vectorize_n_layer_refl()
         args = map(cupy.asarray, args)
         fft = cupy.fft
     else:
