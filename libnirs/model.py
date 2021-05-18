@@ -36,7 +36,7 @@ def _model_ss(rho, mua, musp, n, n_ext):
     D = 1 / (3 * (mua + musp))
     mu_eff = sqrt(mua / D)
     return _ecbc(mu_eff, rho, D, n, n_ext)
-_model_ss_sig = ["f4(f4, f4, f4, f4, f4)", "f8(f8, f8, f8, f8, f8)"]
+_model_ss_sig = ()  # ["f4(f4, f4, f4, f4, f4)", "f8(f8, f8, f8, f8, f8)"]
 model_ss = vectorize(_model_ss_sig, target="cpu")(_model_ss)
 
 
@@ -58,7 +58,7 @@ def _model_fd(rho, mua, musp, n, n_ext, freq, c):
     k_in = sqrt(1 + (omega / (mua * v)) ** 2)
     k = sqrt(mua / D / 2) * (sqrt(k_in + 1) + 1j * sqrt(k_in - 1))
     return _ecbc(k, rho, D, n, n_ext)
-_model_fd_sig = ["c8(f4, f4, f4, f4, f4, f4, f4)", "c16(f8, f8, f8, f8, f8, f8, f8)"]
+_model_fd_sig = ()  # ["c8(f4, f4, f4, f4, f4, f4, f4)", "c16(f8, f8, f8, f8, f8, f8, f8)"]
 model_fd = vectorize(_model_fd_sig, target="cpu")(_model_fd)
 
 
@@ -97,7 +97,7 @@ def _model_td(t, rho, mua, musp, n, n_ext, c):
         * exp(-beta * v * t - (rho ** 2 + z_0 ** 2) / alpha)
         / (pi ** 2 * alpha ** (3 / 2) * z_b ** 2)
     )
-_model_td_sig = ["f4(f4, f4, f4, f4, f4, f4, f4)", "f8(f8, f8, f8, f8, f8, f8, f8)"]
+_model_td_sig = ()  # ["f4(f4, f4, f4, f4, f4, f4, f4)", "f8(f8, f8, f8, f8, f8, f8, f8)"]
 model_td = vectorize(_model_td_sig, target="cpu")(_model_td)
 
 
@@ -120,7 +120,7 @@ def _model_g1(tau, bfi, mua, musp, wavelength, rho, first_tau_delay, n, n_ext):
     k_tau = sqrt((mua + 2 * musp * k0 ** 2 * bfi * tau) / D)
     k_norm = sqrt((mua + 2 * musp * k0 ** 2 * bfi * first_tau_delay) / D)
     return _ecbc(k_tau, rho, D, n, n_ext) / _ecbc(k_norm, rho, D, n, n_ext)
-_model_g1_sig = ["f4(f4, f4, f4, f4, f4, f4, f4, f4, f4)", "f8(f8, f8, f8, f8, f8, f8, f8, f8, f8)"]
+_model_g1_sig = ()  # ["f4(f4, f4, f4, f4, f4, f4, f4, f4, f4)", "f8(f8, f8, f8, f8, f8, f8, f8, f8, f8)"]
 model_g1 = vectorize(_model_g1_sig, target="cpu")(_model_g1)
 _j_model_g1 = jit(_model_g1)
 
@@ -142,5 +142,5 @@ def _model_g2(tau, bfi, beta, mua, musp, wavelength, rho, first_tau_delay, n, n_
     """
     g1 = _j_model_g1(tau, bfi, mua, musp, wavelength, rho, first_tau_delay, n, n_ext)
     return 1 + beta * g1 ** 2
-_model_g2_sig = ["f4(f4, f4, f4, f4, f4, f4, f4, f4, f4, f4)", "f8(f8, f8, f8, f8, f8, f8, f8, f8, f8, f8)"]
+_model_g2_sig = ()  # ["f4(f4, f4, f4, f4, f4, f4, f4, f4, f4, f4)", "f8(f8, f8, f8, f8, f8, f8, f8, f8, f8, f8)"]
 model_g2 = vectorize(_model_g2_sig, target="cpu")(_model_g2)
