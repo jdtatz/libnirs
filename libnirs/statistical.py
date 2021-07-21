@@ -13,7 +13,7 @@ try:
     from math import comb
 except ImportError:
     # Python 3.7 compat
-    def comb(n: int, k: int, /) -> int:
+    def comb(n: int, k: int) -> int:
         from math import factorial
         if k <= n:
             return factorial(n) // (factorial(k) * factorial(n - k))
