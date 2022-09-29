@@ -1,7 +1,28 @@
+"""
+Homogenous Modeling of Reflectance
+"""
 from numpy import pi, exp, sqrt
 from scipy.special import erfc
 from .utils import jit, gen_impedance, gen_coeffs
 from numba import vectorize
+
+try:
+    import numba_scipy
+except ImportError:
+    from numba.extending import overload
+    from .utils import _fma
+
+    @overload(erfc)
+    def _erfc(x):
+        def erfc_impl(x):
+            p = 0.3275911
+            coeffs = 0.254829592, -0.284496736, 1.421413741, -1.453152027, 1.061405429
+            t = 1 / (1 + p * x)
+            z = coeffs[-1]
+            for c in reversed(coeffs[:-1]):
+                z = _fma(z, t, c)
+            return z * exp(-x*x)
+        return erfc_impl
 
 
 @jit
@@ -32,6 +53,8 @@ def _model_ss(rho, mua, musp, n, n_ext):
         musp := Reduced Scattering Coefficent [1/length]
         n := Media Index of Refraction []
         n_ext := External Index of Refraction []
+    Returns:
+        Steady-State Reflectance [1/length^2]
     """
     D = 1 / (3 * (mua + musp))
     mu_eff = sqrt(mua / D)
@@ -74,6 +97,8 @@ def _model_td(t, rho, mua, musp, n, n_ext, c):
         n := Media Index of Refraction []
         n_ext := External Index of Refraction []
         c := Speed of Light in vacuum [length/time]
+    Returns:
+        Time-Domain Reflectance [1/length^2/time]
     """
     imp = gen_impedance(n / n_ext)
     v = c / n  # Speed of light in turbid medium
