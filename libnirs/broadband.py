@@ -1,11 +1,15 @@
 from __future__ import annotations
+
+from typing import Generator, Iterator, List, NamedTuple, Tuple
+
 import numpy as np
 import xarray as xr
-from pymcx import MCX, SaveFlags, SrcType, DetectedPhotons
-from typing import NamedTuple, Iterator, Tuple, List, Generator
-from .utils import jit
+
 from .extinction_coeffs import get_extinction_coeffs
-from .statistical import CentralMoments, WeightedCentralMoments, StandardMoments, weighted_quantile
+from .statistical import (CentralMoments, StandardMoments,
+                          WeightedCentralMoments, weighted_quantile)
+from .typed_pmcx import MCX, DetectedPhotons, SaveFlags, VolumetricOutputType
+from .utils import jit
 
 
 class PhotonAnalysisResults(NamedTuple):
@@ -210,8 +214,9 @@ def analyze_mcx(detp, prop, tof_domain, tau, wavelength, BFi, freq, ntof, nmedia
         momDist[detBins[i], tofBins[i]] += mom_prep[i]
 
 
-def run_mcx(cfg, run_count, tof_domain, tau, wavelength, BFi, freq, fslicer):
+def run_mcx(cfg: MCX, run_count, tof_domain, tau, wavelength, BFi, freq, fslicer):
     seeds = np.random.randint(0xFFFF, size=run_count)
+    assert cfg.detpos is not None
     ndet, ntof, nmedia = len(cfg.detpos), len(tof_domain) - 1, len(cfg.prop) - 1
     phiTD = np.zeros((ndet, ntof), np.float64)
     phiPhase = np.zeros(ndet, np.float64)
@@ -222,16 +227,14 @@ def run_mcx(cfg, run_count, tof_domain, tau, wavelength, BFi, freq, fslicer):
     fslice = 0
     for seed in seeds:
         cfg.seed = seed
-        cfg.savedetflag = SaveFlags.DetectorId | SaveFlags.PartialPath | SaveFlags.Momentum
-        cfg.issave2pt = True
-        cfg.issavedet = True
-        cfg.run()
-        print(cfg.stdout)
-        detp = cfg.detphoton
+        detp, fluence, *_ = cfg.run(
+            VolumetricOutputType.Fluence,
+            SaveFlags.DetectorId | SaveFlags.PartialPath | SaveFlags.Momentum,
+        )
         if cfg.unitinmm != 1:
             detp.partial_path[()] *= cfg.unitinmm  # convert ppath to mm from grid unit
         analyze_mcx(detp, cfg.prop, tof_domain, tau, wavelength, BFi, freq, ntof, nmedia, pcounts, phiTD, phiPhase, g1_top, phiDist, momDist)
-        fslice += cfg.fluence[fslicer]
+        fslice += fluence[fslicer]
     nphoton = run_count * cfg.nphoton
     fslice /= run_count
     g1 = g1_top / np.sum(phiTD, axis=1)[:, np.newaxis]
