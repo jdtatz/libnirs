@@ -231,7 +231,7 @@ def run_mcx(cfg: MCX, run_count, tof_domain, tau, wavelength, BFi, freq, fslicer
             VolumetricOutputType.Fluence,
             SaveFlags.DetectorId | SaveFlags.PartialPath | SaveFlags.Momentum,
         )
-        if cfg.unitinmm != 1:
+        if cfg.unitinmm is not None and cfg.unitinmm != 1:
             detp.partial_path[()] *= cfg.unitinmm  # convert ppath to mm from grid unit
         analyze_mcx(detp, cfg.prop, tof_domain, tau, wavelength, BFi, freq, ntof, nmedia, pcounts, phiTD, phiPhase, g1_top, phiDist, momDist)
         fslice += fluence[fslicer]

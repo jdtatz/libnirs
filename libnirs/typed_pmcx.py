@@ -2,7 +2,7 @@ from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 # FIXME: use actual `StrEnum` when min version is 3.11
 from enum import IntFlag, Enum as StrEnum
-from typing import Literal, NamedTuple, Optional, TypedDict
+from typing import Literal, NamedTuple, Optional, TypedDict, SupportsInt
 
 import numpy as np
 import numpy.typing as npt
@@ -151,7 +151,8 @@ class MCX:
     """Is the source position 0-indexed?"""
     nphoton: Optional[int] = None
     """Total simulated photon number"""
-    seed: Optional[int] = None
+    # TODO: change to SupportsInt | npt.NDarray[np.uint8] when I add `SEED_FROM_FILE` support
+    seed: Optional[SupportsInt] = None
     """Integer to seed MCX's PRNG"""
     nblocksize: Optional[int] = None
     nthread: Optional[int] = None
@@ -251,6 +252,13 @@ class MCX:
         cfg["prop"] = np.asarray(cfg["prop"], dtype=np.float32, order="F")
         if "detpos" in cfg:
             cfg["detpos"] = np.asarray(cfg["detpos"], dtype=np.float32, order="F")
+        seed = cfg.pop("seed", None)
+        if seed is not None and np.isscalar(seed):
+            # TODO: need python 3.11 to prevent false negatives,
+            #  assert isinstance(seed, typing.SupportsInt)
+            cfg["seed"] = int(seed) # type: ignore
+        elif seed is not None:
+            raise NotImplementedError("`SEED_FROM_FILE` support hasn't been added yet")
 
         if self.tend < self.tstart:
             raise MCXValidationError("Simulation time end must be >= to time start")
