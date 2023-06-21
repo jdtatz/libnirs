@@ -191,17 +191,17 @@ def photon_quantiles(detp, mua, n, n_detector, nbins=1024):
 
 
 @jit(parallel=True)
-def analyze_mcx(detp, prop, tof_domain, tau, wavelength, BFi, freq, ntof, nmedia, pcounts, phiTD, phiPhase, g1_top, phiDist, momDist):
+def analyze_mcx(detp, mua, n, tof_domain, tau, wavelength, BFi, freq, ntof, nmedia, pcounts, phiTD, phiPhase, g1_top, phiDist, momDist):
     c = 2.998e+11  # speed of light in mm / s
     detBins = detp.detector_id.astype(np.int32) - 1
-    layerdist = prop[1:].n * detp.partial_path.T
-    totaldist = prop[1:].n @ detp.partial_path
+    layerdist = n * detp.partial_path.T
+    totaldist = n @ detp.partial_path
     tofBins = np.minimum(np.digitize(totaldist, c * tof_domain), ntof) - 1
     distBins = np.minimum(np.digitize(layerdist, c * tof_domain), ntof) - 1
-    path = -prop[1:].mua @ detp.partial_path
+    path = -mua @ detp.partial_path
     phis = np.exp(path)
     omega_wavelength = -2 * np.pi * freq / c
-    prep = (-2*(2*np.pi*prop[1:].n/(wavelength*1e-6))**2*BFi).astype(np.float32) @ detp.momentum
+    prep = (-2*(2*np.pi*n/(wavelength*1e-6))**2*BFi).astype(np.float32) @ detp.momentum
     big = np.exp(prep * tau.reshape((len(tau), 1)) + path)
     mom_prep = phis.reshape((len(phis), 1)) * detp.momentum.T
     for i in range(len(detBins)):
@@ -225,6 +225,8 @@ def run_mcx(cfg: MCX, run_count, tof_domain, tau, wavelength, BFi, freq, fslicer
     phiDist = np.zeros((ndet, ntof, nmedia), np.float64)
     momDist = np.zeros((ndet, ntof, nmedia), np.float64)
     fslice = 0
+    mua = np.array([prop[0] for prop in cfg.prop[1:]], np.float32)
+    n = np.array([prop[3] for prop in cfg.prop[1:]], np.float32)
     for seed in seeds:
         cfg.seed = seed
         detp, fluence, *_ = cfg.run(
@@ -233,7 +235,7 @@ def run_mcx(cfg: MCX, run_count, tof_domain, tau, wavelength, BFi, freq, fslicer
         )
         if cfg.unitinmm is not None and cfg.unitinmm != 1:
             detp.partial_path[()] *= cfg.unitinmm  # convert ppath to mm from grid unit
-        analyze_mcx(detp, cfg.prop, tof_domain, tau, wavelength, BFi, freq, ntof, nmedia, pcounts, phiTD, phiPhase, g1_top, phiDist, momDist)
+        analyze_mcx(detp, mua, n, tof_domain, tau, wavelength, BFi, freq, ntof, nmedia, pcounts, phiTD, phiPhase, g1_top, phiDist, momDist)
         fslice += fluence[fslicer]
     nphoton = run_count * cfg.nphoton
     fslice /= run_count
