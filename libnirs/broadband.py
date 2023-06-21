@@ -190,7 +190,7 @@ def photon_quantiles(detp, mua, n, n_detector, nbins=1024):
     return q, np.stack(q_phi), np.stack(q_opl), np.stack(q_mom)
 
 
-@jit(parallel=True)
+@jit  # (parallel=True)
 def analyze_mcx(detp, mua, n, tof_domain, tau, wavelength, BFi, freq, ntof, nmedia, pcounts, phiTD, phiPhase, g1_top, phiDist, momDist):
     c = 2.998e+11  # speed of light in mm / s
     detBins = detp.detector_id.astype(np.int32) - 1
