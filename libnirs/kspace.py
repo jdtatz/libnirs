@@ -277,15 +277,35 @@ class Parameters(NamedTuple):
         return write_values(group, values)
 
 
-def run_k_space(params: Parameters, use_cpu: bool = False, name: str = "User", description: str = "short description"):
+def run_k_space(
+    params: Parameters,
+    use_cpu: bool = False,
+    name: str = "User",
+    description: str = "short description",
+    kspace_path = None,
+):
     with TemporaryDirectory() as tdir:
         in_file = Path(tdir) / "input.hdf5"
         out_file = Path(tdir) / "output.hdf5"
         with File(in_file, "w") as f:
             create_header(f, name, description)
             params.write(f)
-        kspace = Path(__file__).parent / ("kspaceFirstOrder-OMP" if use_cpu else "kspaceFirstOrder-CUDA")
-        cmd = kspace, "-i", in_file, "-o", out_file, "--copy_sensor_mask", "-p", "--p_final", "-u", "--u_final"
+        if kspace_path is None:
+            kspace_path = Path(__file__).parent / (
+                "kspaceFirstOrder-OMP" if use_cpu else "kspaceFirstOrder-CUDA"
+            )
+        cmd = (
+            kspace_path,
+            "-i",
+            in_file,
+            "-o",
+            out_file,
+            "--copy_sensor_mask",
+            "-p",
+            "--p_final",
+            "-u",
+            "--u_final",
+        )
         proc = run(cmd, stdout=PIPE, stderr=STDOUT)
         stdout = proc.stdout.decode("utf-8", "ignore")
         try:
@@ -295,4 +315,3 @@ def run_k_space(params: Parameters, use_cpu: bool = False, name: str = "User", d
             raise
         with File(out_file, "r") as f:
             return {**read_values(f), "stdout": stdout}
-

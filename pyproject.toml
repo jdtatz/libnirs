@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "libnirs"
-version = "0.7.3"
+version = "0.7.4"
 description = "Library for NIRS analysis"
 license = {text = "Proprietary"}
 authors = [{name = "Julia Tatz", email = "julia.tatz@childrens.harvard.edu"}]
