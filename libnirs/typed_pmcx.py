@@ -201,7 +201,7 @@ class MCX:
     # classes per enum to totally encapsulate the needed information
     srcparam1: Optional[float4] = None
     srcparam2: Optional[float4] = None
-    # srcpattern: ????
+    srcpattern: Optional[npt.NDArray] = None
     srciquv: Optional[float] = None
     detpos: Optional[Sequence[float4]] = None
     """Detector vector positions and radii [grid unit]"""
@@ -225,6 +225,7 @@ class MCX:
             "pencilarray",
             "pattern3d",
             "hyperboloid",
+            "diskarray",
         ]
     ] = None
     """Source type"""
