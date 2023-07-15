@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "libnirs"
-version = "0.7.2"
+version = "0.7.3"
 description = "Library for NIRS analysis"
 license = {text = "Proprietary"}
 authors = [{name = "Julia Tatz", email = "julia.tatz@childrens.harvard.edu"}]
@@ -19,7 +19,8 @@ dependencies = [
 
 [project.optional-dependencies]
 accurate = ["numba-scipy @ git+https://github.com/numba/numba-scipy.git"]
-broadband = ["pmcx"]
+# broadband = ["pmcx"]
+broadband = ["pmcx @ git+https://github.com/jdtatz/mcx.git@diskarray-src#subdirectory=pmcx"]
 kspace = ["h5py"]
 dev = ["sympy"]
 
