@@ -9,19 +9,19 @@ from numba import vectorize
 try:
     import numba_scipy
 except ImportError:
-    from numba.extending import overload
-    from .utils import _fma
+    from numba.extending import get_cython_function_address, overload
 
     @overload(erfc)
     def _erfc(x):
+        import ctypes
+
+        addr = get_cython_function_address("scipy.special.cython_special", "__pyx_fuse_1erfc")
+        functype = ctypes.CFUNCTYPE(ctypes.c_double, ctypes.c_double)
+        erfc_impl_inner = functype(addr)
+
         def erfc_impl(x):
-            p = 0.3275911
-            coeffs = 0.254829592, -0.284496736, 1.421413741, -1.453152027, 1.061405429
-            t = 1 / (1 + p * x)
-            z = coeffs[-1]
-            for c in reversed(coeffs[:-1]):
-                z = _fma(z, t, c)
-            return z * exp(-x*x)
+            return erfc_impl_inner(x)
+
         return erfc_impl
 
 
