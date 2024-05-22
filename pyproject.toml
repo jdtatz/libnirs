@@ -25,4 +25,5 @@ kspace = ["h5py"]
 dev = ["sympy"]
 
 [tool.setuptools]
+packages = ["libnirs"]
 package-data = {"libnirs"=['libnirs/extc.npz']}
