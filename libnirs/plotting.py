@@ -1,9 +1,10 @@
+from typing import Any, Callable, Dict, Optional, Tuple, TypeVar, Union
+
 import numpy as np
-from scipy import stats
 from matplotlib.axes import Axes
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from typing import Optional, Union, Callable, Tuple, Any, Dict, TypeVar
 from numpy.typing import ArrayLike
+from scipy import stats
 
 _bkg_color = "#212121"
 _fgr_color = "#eeffff"
@@ -44,7 +45,7 @@ def joint_hist(
     hist_kwargs: Optional[Dict[str, Any]] = None,
     fill_between_kwargs: Optional[Dict[str, Any]] = None,
     title: Optional[str] = None,
-    ret_ax: bool = False
+    ret_ax: bool = False,
 ) -> Union[
     Tuple[ArrayLike, ArrayLike, ArrayLike],
     Tuple[ArrayLike, ArrayLike, ArrayLike, Axes, Axes],
@@ -70,9 +71,7 @@ def joint_hist(
     ax_y_pdf = divider.append_axes("right", size=pdf_ax_size, pad=0, sharey=ax)
 
     if use_contourf:
-        im = ax.contourf(
-            counts.T, extent=[xbins[0], xbins[-1], ybins[0], ybins[-1]], **hist_kwargs
-        )
+        im = ax.contourf(counts.T, extent=[xbins[0], xbins[-1], ybins[0], ybins[-1]], **hist_kwargs)
     else:
         im = ax.pcolormesh(xbins, ybins, counts.T, **hist_kwargs)
 
@@ -87,7 +86,7 @@ def joint_hist(
             "hatch": "x",
             "clip_on": False,
             **fill_between_kwargs,
-        }
+        },
     )
     ax_x_pdf.set_ylim(0, None)
     ax_x_pdf.set_axis_off()
@@ -104,7 +103,7 @@ def joint_hist(
             "hatch": "x",
             "clip_on": False,
             **fill_between_kwargs,
-        }
+        },
     )
     ax_y_pdf.set_xlim(0, None)
     ax_y_pdf.set_axis_off()

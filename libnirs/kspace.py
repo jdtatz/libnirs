@@ -1,13 +1,14 @@
 """ kWave-Toolbox Wrapper http://www.k-wave.org """
-from typing import NamedTuple, Union, Optional, Sequence, Tuple
-from enum import IntEnum
-from datetime import datetime
-from subprocess import run, PIPE, STDOUT
-from tempfile import TemporaryDirectory
-from pathlib import Path
 
-from h5py import File, Group
+from datetime import datetime
+from enum import IntEnum
+from pathlib import Path
+from subprocess import PIPE, STDOUT, run
+from tempfile import TemporaryDirectory
+from typing import NamedTuple, Optional, Sequence, Tuple, Union
+
 import numpy as np
+from h5py import File, Group
 from scipy import signal
 
 
@@ -67,7 +68,7 @@ def read_values(group: Group):
 
 
 def matlab_compat_ravel_multi_index(*xyz, shape):
-    return 1 + np.ravel_multi_index(xyz, shape, order='F')
+    return 1 + np.ravel_multi_index(xyz, shape, order="F")
 
 
 class kGrid:
@@ -96,7 +97,7 @@ class kGrid:
 def make_time(Nxyz: Sequence[int], dxyz: Sequence[float], sound_speed: float, cfl=0.3, t_end=None) -> Tuple[int, float]:
     # cfl = Courant–Friedrichs–Lewy condition
     if t_end is None:
-        t_end = np.sqrt(sum((n * d)**2 for n, d in zip(Nxyz, dxyz))) / np.min(sound_speed)
+        t_end = np.sqrt(sum((n * d) ** 2 for n, d in zip(Nxyz, dxyz))) / np.min(sound_speed)
     min_grid_dim = min(dxyz)
     dt = cfl * min_grid_dim / np.max(sound_speed)
     Nt = int(t_end // dt) + 1
@@ -282,7 +283,7 @@ def run_k_space(
     use_cpu: bool = False,
     name: str = "User",
     description: str = "short description",
-    kspace_path = None,
+    kspace_path=None,
 ):
     with TemporaryDirectory() as tdir:
         in_file = Path(tdir) / "input.hdf5"
@@ -291,9 +292,7 @@ def run_k_space(
             create_header(f, name, description)
             params.write(f)
         if kspace_path is None:
-            kspace_path = Path(__file__).parent / (
-                "kspaceFirstOrder-OMP" if use_cpu else "kspaceFirstOrder-CUDA"
-            )
+            kspace_path = Path(__file__).parent / ("kspaceFirstOrder-OMP" if use_cpu else "kspaceFirstOrder-CUDA")
         cmd = (
             kspace_path,
             "-i",

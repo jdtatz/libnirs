@@ -3,11 +3,11 @@ from __future__ import annotations
 from typing import Callable, Generic, NamedTuple, Optional, Type, TypeVar
 
 import numpy as np
-from numpy.typing import ArrayLike, DTypeLike
 from numba import typeof
 from numba.extending import overload_attribute
+from numpy.typing import ArrayLike, DTypeLike
 
-from .utils import jit, fma
+from .utils import fma, jit
 
 try:
     from math import comb
@@ -15,13 +15,16 @@ except ImportError:
     # Python 3.7 compat
     def comb(n: int, k: int) -> int:
         from math import factorial
+
         if k <= n:
             return factorial(n) // (factorial(k) * factorial(n - k))
         else:
             return 0
 
 
-def weighted_quantile(dataset: ArrayLike, weight: ArrayLike, q: Optional[ArrayLike]=None, axis: Optional[int]=None) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
+def weighted_quantile(
+    dataset: ArrayLike, weight: ArrayLike, q: Optional[ArrayLike] = None, axis: Optional[int] = None
+) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
     s_idx = np.argsort(dataset)
     x = np.take_along_axis(dataset, s_idx, axis=axis)
     w = np.take_along_axis(weight, s_idx, axis=axis)
@@ -50,7 +53,7 @@ class classproperty(Generic[T, V]):
         # if `fget` is a classmethod
         self.fget = getattr(fget, "__func__", fget)
 
-    def __get__(self, instance: Optional[T], owner: Optional[type[T]]=None) -> V:
+    def __get__(self, instance: Optional[T], owner: Optional[type[T]] = None) -> V:
         if owner is None and instance is not None:
             owner = type(instance)
         if not hasattr(self, "owner") and owner is not None:
@@ -70,7 +73,7 @@ class StandardMoments(NamedTuple):
 
 
 class CentralMoments(NamedTuple):
-    '''
+    """
     Formulas for Robust, One-Pass Parallel Computation of Covariances and Arbitrary-Order Statistical Moments
     Philippe P ́ebay
     https://core.ac.uk/download/pdf/205797606.pdf
@@ -78,7 +81,8 @@ class CentralMoments(NamedTuple):
     Simpler Online Updates for Arbitrary-Order Central Moment
     Xiangrui Meng
     https://arxiv.org/pdf/1510.04923.pdf
-    '''
+    """
+
     n: np.ndarray
     mu: np.ndarray
     m2: np.ndarray
@@ -86,11 +90,11 @@ class CentralMoments(NamedTuple):
     m4: np.ndarray
 
     @classmethod
-    def alloc(cls, shape=(), scalar_dtype: DTypeLike=np.float64) -> CentralMoments:
+    def alloc(cls, shape=(), scalar_dtype: DTypeLike = np.float64) -> CentralMoments:
         return cls._make(np.zeros(shape, dtype=scalar_dtype) for _ in cls._fields)
 
     @classmethod
-    def _dtype(cls, scalar_dtype: DTypeLike=np.float64) -> DTypeLike:
+    def _dtype(cls, scalar_dtype: DTypeLike = np.float64) -> DTypeLike:
         return np.dtype([(f, scalar_dtype) for f in cls._fields], align=True)
 
     @classproperty
@@ -147,7 +151,7 @@ class CentralMoments(NamedTuple):
         mean = self.mu
         var = self.m2 / self.n
         skew = np.sqrt(self.n) * self.m3 / self.m2 ** (3 / 2)
-        kurt = self.n * self.m4 / self.m2 ** 2
+        kurt = self.n * self.m4 / self.m2**2
         return StandardMoments(mean, var, skew, kurt)
 
     @property
@@ -156,7 +160,7 @@ class CentralMoments(NamedTuple):
 
 
 class WeightedCentralMoments(NamedTuple):
-    '''
+    """
     Formulas for Robust, One-Pass Parallel Computation of Covariances and Arbitrary-Order Statistical Moments
     Philippe P ́ebay
     https://core.ac.uk/download/pdf/205797606.pdf
@@ -164,7 +168,8 @@ class WeightedCentralMoments(NamedTuple):
     Simpler Online Updates for Arbitrary-Order Central Moment
     Xiangrui Meng
     https://arxiv.org/pdf/1510.04923.pdf
-    '''
+    """
+
     W: np.ndarray
     mu: np.ndarray
     m2: np.ndarray
@@ -229,7 +234,7 @@ class WeightedCentralMoments(NamedTuple):
         mean = self.mu
         var = self.m2 / self.W
         skew = np.sqrt(self.W) * self.m3 / self.m2 ** (3 / 2)
-        kurt = self.W * self.m4 / self.m2 ** 2
+        kurt = self.W * self.m4 / self.m2**2
         return StandardMoments(mean, var, skew, kurt)
 
     @property
@@ -237,23 +242,23 @@ class WeightedCentralMoments(NamedTuple):
         return self.standardize()
 
 
-
 # TODO: Fix this hacky workaround
 _CentralMoments_push = CentralMoments.push
 _WeightedCentralMoments_push = WeightedCentralMoments.push
 
-@overload_attribute(typeof(CentralMoments), 'push')
+
+@overload_attribute(typeof(CentralMoments), "push")
 def _CentralMoments_push_attr(self):
     return lambda self: _CentralMoments_push
 
-@overload_attribute(typeof(WeightedCentralMoments), 'push')
+
+@overload_attribute(typeof(WeightedCentralMoments), "push")
 def _WeightedCentralMoments_push_attr(self):
     return lambda self: _WeightedCentralMoments_push
 
 
-
 class NWeightedCentralMoments(NamedTuple):
-    '''
+    """
     Formulas for Robust, One-Pass Parallel Computation of Covariances and Arbitrary-Order Statistical Moments
     Philippe P ́ebay
     https://core.ac.uk/download/pdf/205797606.pdf
@@ -261,7 +266,8 @@ class NWeightedCentralMoments(NamedTuple):
     Simpler Online Updates for Arbitrary-Order Central Moment
     Xiangrui Meng
     https://arxiv.org/pdf/1510.04923.pdf
-    '''
+    """
+
     W: np.ndarray
     mu: np.ndarray
     moments: tuple[np.ndarray, ...]
@@ -272,7 +278,7 @@ class NWeightedCentralMoments(NamedTuple):
         return NWeightedCentralMoments(
             W=np.zeros(shape, dtype=scalar_dtype),
             mu=np.zeros(shape, dtype=scalar_dtype),
-            moments=tuple(np.zeros(shape, dtype=scalar_dtype) for _ in range(2, n + 1))
+            moments=tuple(np.zeros(shape, dtype=scalar_dtype) for _ in range(2, n + 1)),
         )
 
     @jit
@@ -288,7 +294,7 @@ class NWeightedCentralMoments(NamedTuple):
             # v2
             s = -delta * w
             for k in reversed(range(1, (p - 2) + 1)):
-                s = fma(s, d_w, -comb(p, k) * self.moments[p-k-2][index])
+                s = fma(s, d_w, -comb(p, k) * self.moments[p - k - 2][index])
             self.moments[i][index] += fma(s, d_w, w * delta**p)
 
     def merge(self, rhs: NWeightedCentralMoments) -> NWeightedCentralMoments:
@@ -300,9 +306,11 @@ class NWeightedCentralMoments(NamedTuple):
         assert len(self.moments) == len(rhs.moments)
         for i in reversed(range(len(self.moments))):
             p = i + 2
-            s = d_w * W * self.W * rhs.W * (self.W**(p-1) - (-rhs.W)**(p-1))
+            s = d_w * W * self.W * rhs.W * (self.W ** (p - 1) - (-rhs.W) ** (p - 1))
             for k in reversed(range(1, (p - 2) + 1)):
-                s = fma(s, d_w, comb(p, k) * (self.W**k * rhs.moments[p-k-2] + (-rhs.W)**k * self.moments[p-k-2]))
+                s = fma(
+                    s, d_w, comb(p, k) * (self.W**k * rhs.moments[p - k - 2] + (-rhs.W) ** k * self.moments[p - k - 2])
+                )
             s = fma(s, d_w, self.moments[i] + rhs.moments[i])
             moments.append(s)
         return NWeightedCentralMoments(W, mu, tuple(moments))
@@ -474,4 +482,3 @@ def _generate(n: int):
     import jinja2
 
     return jinja2.Template(_template).render(n=n, comb=comb)
-

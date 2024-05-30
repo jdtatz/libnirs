@@ -1,10 +1,12 @@
 """
 Homogenous Modeling of Reflectance
 """
-from numpy import pi, exp, sqrt
-from scipy.special import erfc
-from .utils import jit, gen_impedance, gen_coeffs
+
 from numba import vectorize
+from numpy import exp, pi, sqrt
+from scipy.special import erfc
+
+from .utils import gen_coeffs, gen_impedance, jit
 
 try:
     import numba_scipy
@@ -33,14 +35,11 @@ def _ecbc(k, rho, D, n, n_ext):
     z0 = 3 * D
     zb = 2 * D * imp
     # r1 = sqrt(rho ** 2 + (z - z0) ** 2)
-    r1 = sqrt(rho ** 2 + z0 ** 2)
+    r1 = sqrt(rho**2 + z0**2)
     # r2 = sqrt(rho ** 2 + (z + z0 + 2 * zb) ** 2)
-    r2 = sqrt(rho ** 2 + (z0 + 2 * zb) ** 2)
+    r2 = sqrt(rho**2 + (z0 + 2 * zb) ** 2)
     phi = (exp(-k * r1) / r1 - exp(-k * r2) / r2) / (4 * pi * D)
-    j = (
-        z0 * (1 + k * r1) * exp(-k * r1) / r1 ** 3
-        + (z0 + 2 * zb) * (1 + k * r2) * exp(-k * r2) / r2 ** 3
-    ) / (4 * pi)
+    j = (z0 * (1 + k * r1) * exp(-k * r1) / r1**3 + (z0 + 2 * zb) * (1 + k * r2) * exp(-k * r2) / r2**3) / (4 * pi)
     return fresTphi * phi + fresTj * j
 
 
@@ -59,6 +58,8 @@ def _model_ss(rho, mua, musp, n, n_ext):
     D = 1 / (3 * (mua + musp))
     mu_eff = sqrt(mua / D)
     return _ecbc(mu_eff, rho, D, n, n_ext)
+
+
 _model_ss_sig = ()  # ["f4(f4, f4, f4, f4, f4)", "f8(f8, f8, f8, f8, f8)"]
 model_ss = vectorize(_model_ss_sig, target="cpu")(_model_ss)
 
@@ -81,9 +82,10 @@ def _model_fd(rho, mua, musp, n, n_ext, freq, c):
     k_in = sqrt(1 + (omega / (mua * v)) ** 2)
     k = sqrt(mua / D / 2) * (sqrt(k_in + 1) + 1j * sqrt(k_in - 1))
     return _ecbc(k, rho, D, n, n_ext)
+
+
 _model_fd_sig = ()  # ["c8(f4, f4, f4, f4, f4, f4, f4)", "c16(f8, f8, f8, f8, f8, f8, f8)"]
 model_fd = vectorize(_model_fd_sig, target="cpu")(_model_fd)
-
 
 
 def _model_td(t, rho, mua, musp, n, n_ext, c):
@@ -115,13 +117,15 @@ def _model_td(t, rho, mua, musp, n, n_ext, c):
         * (
             pi
             * sqrt(alpha)
-            * exp((alpha + 2 * z_0 * z_b) ** 2 / (4 * alpha * z_b ** 2))
+            * exp((alpha + 2 * z_0 * z_b) ** 2 / (4 * alpha * z_b**2))
             * erfc((alpha + 2 * z_0 * z_b) / (2 * sqrt(alpha) * z_b))
             - 2 * sqrt(pi) * z_b
         )
-        * exp(-beta * v * t - (rho ** 2 + z_0 ** 2) / alpha)
-        / (pi ** 2 * alpha ** (3 / 2) * z_b ** 2)
+        * exp(-beta * v * t - (rho**2 + z_0**2) / alpha)
+        / (pi**2 * alpha ** (3 / 2) * z_b**2)
     )
+
+
 _model_td_sig = ()  # ["f4(f4, f4, f4, f4, f4, f4, f4)", "f8(f8, f8, f8, f8, f8, f8, f8)"]
 model_td = vectorize(_model_td_sig, target="cpu")(_model_td)
 
@@ -142,9 +146,11 @@ def _model_g1(tau, bfi, mua, musp, wavelength, rho, first_tau_delay, n, n_ext):
     """
     D = 1 / (3 * (mua + musp))
     k0 = 2 * pi * n / wavelength
-    k_tau = sqrt((mua + 2 * musp * k0 ** 2 * bfi * tau) / D)
-    k_norm = sqrt((mua + 2 * musp * k0 ** 2 * bfi * first_tau_delay) / D)
+    k_tau = sqrt((mua + 2 * musp * k0**2 * bfi * tau) / D)
+    k_norm = sqrt((mua + 2 * musp * k0**2 * bfi * first_tau_delay) / D)
     return _ecbc(k_tau, rho, D, n, n_ext) / _ecbc(k_norm, rho, D, n, n_ext)
+
+
 _model_g1_sig = ()  # ["f4(f4, f4, f4, f4, f4, f4, f4, f4, f4)", "f8(f8, f8, f8, f8, f8, f8, f8, f8, f8)"]
 model_g1 = vectorize(_model_g1_sig, target="cpu")(_model_g1)
 _j_model_g1 = jit(_model_g1)
@@ -166,7 +172,9 @@ def _model_g2(tau, bfi, beta, mua, musp, wavelength, rho, first_tau_delay, n, n_
         n_ext := External Index of Refraction []
     """
     g1 = _j_model_g1(tau, bfi, mua, musp, wavelength, rho, first_tau_delay, n, n_ext)
-    return 1 + beta * g1 ** 2
+    return 1 + beta * g1**2
+
+
 _model_g2_sig = ()  # ["f4(f4, f4, f4, f4, f4, f4, f4, f4, f4, f4)", "f8(f8, f8, f8, f8, f8, f8, f8, f8, f8, f8)"]
 model_g2 = vectorize(_model_g2_sig, target="cpu")(_model_g2)
 

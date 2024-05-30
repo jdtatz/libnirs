@@ -1,13 +1,27 @@
-import numpy as np
 from typing import Tuple, Union
-from .kspace import make_time, Parameters, AbsorptionType, SensorMaskType, run_k_space, PressureSourceProperties, VelocitySourceProperties, SourceMode
+
+import numpy as np
+
+from .kspace import (
+    AbsorptionType,
+    Parameters,
+    PressureSourceProperties,
+    SensorMaskType,
+    SourceMode,
+    VelocitySourceProperties,
+    make_time,
+    run_k_space,
+)
+
 
 def _is_scalar_or_shape(value, shape: Tuple[int, ...]) -> bool:
     return np.shape(value) == () or np.shape(value) == shape
 
 
-def fluence_2_pressure(cw_fluence: np.ndarray, mua_map: Union[float, np.ndarray], gruneisen: Union[float, np.ndarray] = 0.12) -> np.ndarray:
-    """ Convert CW-Absorption to Pressure
+def fluence_2_pressure(
+    cw_fluence: np.ndarray, mua_map: Union[float, np.ndarray], gruneisen: Union[float, np.ndarray] = 0.12
+) -> np.ndarray:
+    """Convert CW-Absorption to Pressure
     Parameters:
         cw_fluence: [ J / mm^2 ]
         mua_map: [ 1 / mm ]
@@ -25,11 +39,17 @@ def fluence_2_pressure(cw_fluence: np.ndarray, mua_map: Union[float, np.ndarray]
     assert _is_scalar_or_shape(mua_map, media_shape)
     assert _is_scalar_or_shape(gruneisen, media_shape)
     # 1 J / mm^3 == 1e9 Pa
-    initial_pressure = mua_map * gruneisen * 1e9 * cw_fluence # Pa
+    initial_pressure = mua_map * gruneisen * 1e9 * cw_fluence  # Pa
     return initial_pressure
 
 
-def forward_simulation(pressure_image: np.ndarray, sound_speed: Union[float, np.ndarray], density: Union[float, np.ndarray], detpos: np.ndarray, voxel_size: Tuple[float, float, float] = (1, 1, 1)) -> Parameters:
+def forward_simulation(
+    pressure_image: np.ndarray,
+    sound_speed: Union[float, np.ndarray],
+    density: Union[float, np.ndarray],
+    detpos: np.ndarray,
+    voxel_size: Tuple[float, float, float] = (1, 1, 1),
+) -> Parameters:
     Nx, Ny, Nz = pressure_image.shape
     dx, dy, dz = voxel_size  # [mm]
     dx *= 1e-3  # [m]
@@ -40,7 +60,7 @@ def forward_simulation(pressure_image: np.ndarray, sound_speed: Union[float, np.
 
     # detpos2 = np.stack([r + (x, y, z) for x in [-1, 0, 1] for y in [-1, 0, 1] for z in [-1, 0, 1] for r in detpos.astype(np.int32)])
     # det_mask = 1 + np.ravel_multi_index((detpos2.T).astype(np.int32), pressure_image.shape, order='F')
-    det_mask = 1 + np.ravel_multi_index((detpos.T).astype(np.int32), pressure_image.shape, order='F')
+    det_mask = 1 + np.ravel_multi_index((detpos.T).astype(np.int32), pressure_image.shape, order="F")
 
     return Parameters(
         Nx=Nx,
@@ -73,7 +93,7 @@ def time_reversed_simulation(forward_sim_parameters: Parameters, forward_sim_res
     time_rev_p_source = PressureSourceProperties(
         p_source_mode=SourceMode.Dirichlet,
         p_source_index=forward_sim_parameters.sensor_mask,
-        p_source_input=forward_sim_result["p"][:, ::-1, 0]
+        p_source_input=forward_sim_result["p"][:, ::-1, 0],
     )
     time_rev_u_source = VelocitySourceProperties(
         u_source_mode=SourceMode.Dirichlet,
@@ -82,8 +102,4 @@ def time_reversed_simulation(forward_sim_parameters: Parameters, forward_sim_res
         uy_source_input=forward_sim_result["uy"][:, ::-1, 0],
         uz_source_input=forward_sim_result["uz"][:, ::-1, 0],
     )
-    return forward_sim_parameters._replace(
-        p0_source_input=None,
-        p_source=time_rev_p_source,
-        u_source=time_rev_u_source
-    )
+    return forward_sim_parameters._replace(p0_source_input=None, p_source=time_rev_p_source, u_source=time_rev_u_source)

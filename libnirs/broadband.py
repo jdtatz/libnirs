@@ -1,13 +1,10 @@
-from __future__ import annotations
-
 from typing import Generator, Iterator, List, NamedTuple, Tuple
 
 import numpy as np
 import xarray as xr
 
 from .extinction_coeffs import get_extinction_coeffs
-from .statistical import (CentralMoments, StandardMoments,
-                          WeightedCentralMoments, weighted_quantile)
+from .statistical import CentralMoments, StandardMoments, WeightedCentralMoments, weighted_quantile
 from .typed_pmcx import MCX, DetectedPhotons, SaveFlags, VolumetricOutputType
 from .utils import jit
 
@@ -152,12 +149,15 @@ def photon_histograms(detp, mua, n, n_detector, nbins=128) -> PhotonsHistograms:
     split_layer_opl = np.split(layer_opl, split_idxs)
     split_layer_mom = np.split(layer_mom, split_idxs)
 
-    it = ((
+    it = (
+        (
             np.histogram(o, bins=nbins, weights=p),
             np.histogram(m, bins=nbins, weights=p),
             np.histogramdd(ol, bins=nbins, weights=p),
             np.histogramdd(ml, bins=nbins, weights=p),
-        ) for p, o, m, ol, ml in zip(split_phi, split_opl, split_mom, split_layer_opl, split_layer_mom))
+        )
+        for p, o, m, ol, ml in zip(split_phi, split_opl, split_mom, split_layer_opl, split_layer_mom)
+    )
     return PhotonsHistograms._make(map(lambda h: Histogram._make(map(np.stack, zip(*h))), zip(*it)))
 
 
@@ -177,22 +177,40 @@ def photon_quantiles(detp, mua, n, n_detector, nbins=1024):
     split_phi = np.split(phi, split_idxs)
     split_opl = np.split(opl, split_idxs)
     split_mom = np.split(mom, split_idxs)
-    
+
     prepend_zero = lambda a: np.concatenate((np.zeros(1), a))
 
     q = np.linspace(0, 1, nbins)
-    q_phi, q_opl, q_mom = zip(*(
-        (np.quantile(w, q), weighted_quantile(o, w, q), weighted_quantile(m, w, q))
-        for o, m, w in 
-        zip(map(prepend_zero, split_opl), map(prepend_zero, split_mom), map(prepend_zero, split_phi))
-    ))
+    q_phi, q_opl, q_mom = zip(
+        *(
+            (np.quantile(w, q), weighted_quantile(o, w, q), weighted_quantile(m, w, q))
+            for o, m, w in zip(map(prepend_zero, split_opl), map(prepend_zero, split_mom), map(prepend_zero, split_phi))
+        )
+    )
 
     return q, np.stack(q_phi), np.stack(q_opl), np.stack(q_mom)
 
 
 @jit  # (parallel=True)
-def analyze_mcx(detp, mua, n, tof_domain, tau, wavelength, BFi, freq, ntof, nmedia, pcounts, phiTD, phiPhase, g1_top, phiDist, momDist):
-    c = 2.998e+11  # speed of light in mm / s
+def analyze_mcx(
+    detp,
+    mua,
+    n,
+    tof_domain,
+    tau,
+    wavelength,
+    BFi,
+    freq,
+    ntof,
+    nmedia,
+    pcounts,
+    phiTD,
+    phiPhase,
+    g1_top,
+    phiDist,
+    momDist,
+):
+    c = 2.998e11  # speed of light in mm / s
     detBins = detp.detector_id.astype(np.int32) - 1
     layerdist = n * detp.partial_path.T
     totaldist = n @ detp.partial_path
@@ -201,7 +219,7 @@ def analyze_mcx(detp, mua, n, tof_domain, tau, wavelength, BFi, freq, ntof, nmed
     path = -mua @ detp.partial_path
     phis = np.exp(path)
     omega_wavelength = -2 * np.pi * freq / c
-    prep = (-2*(2*np.pi*n/(wavelength*1e-6))**2*BFi).astype(np.float32) @ detp.momentum
+    prep = (-2 * (2 * np.pi * n / (wavelength * 1e-6)) ** 2 * BFi).astype(np.float32) @ detp.momentum
     big = np.exp(prep * tau.reshape((len(tau), 1)) + path)
     mom_prep = phis.reshape((len(phis), 1)) * detp.momentum.T
     for i in range(len(detBins)):
@@ -235,7 +253,24 @@ def run_mcx(cfg: MCX, run_count, tof_domain, tau, wavelength, BFi, freq, fslicer
         )
         if cfg.unitinmm is not None and cfg.unitinmm != 1:
             detp.partial_path[()] *= cfg.unitinmm  # convert ppath to mm from grid unit
-        analyze_mcx(detp, mua, n, tof_domain, tau, wavelength, BFi, freq, ntof, nmedia, pcounts, phiTD, phiPhase, g1_top, phiDist, momDist)
+        analyze_mcx(
+            detp,
+            mua,
+            n,
+            tof_domain,
+            tau,
+            wavelength,
+            BFi,
+            freq,
+            ntof,
+            nmedia,
+            pcounts,
+            phiTD,
+            phiPhase,
+            g1_top,
+            phiDist,
+            momDist,
+        )
         fslice += fluence[fslicer]
     nphoton = run_count * cfg.nphoton
     fslice /= run_count
@@ -252,49 +287,77 @@ def run_mcx(cfg: MCX, run_count, tof_domain, tau, wavelength, BFi, freq, fslicer
             "PhiDist": (["detector", "time", "layer"], phiDist, {"long_name": "Φ Distribution"}),
             "g1": (["detector", "tau"], g1),
             "fluence": (["x", "y", "z", "time"], fslice),
-            "momDist": (["detector", "time", "layer"], momDist, {"long_name": "Momentum-Transfer Distribution"})
+            "momDist": (["detector", "time", "layer"], momDist, {"long_name": "Momentum-Transfer Distribution"}),
         },
         coords={
             "wavelength": ([], wavelength, {"units": "nanometer", "long_name": "λ"}),
             "time": (["time"], (tof_domain[:-1] + tof_domain[1:]) / 2, {"units": "second"}),
             "tau": (["tau"], tau, {"units": "second", "long_name": "τ"}),
-        }
+        },
     )
 
 
 def create_props(layers, lprops, wavelen):
-    media = np.empty((1+len(layers), 4), np.float32)
+    media = np.empty((1 + len(layers), 4), np.float32)
     media[0] = 0, 0, 1, 1
     for i, l in enumerate(layers):
         lp = lprops[l]
-        g = lp['g']
-        mua = sum(get_extinction_coeffs(wavelen, k) * v for k, v in lp['components'].items())
-        mus = lp['Scatter A'] * wavelen ** -lp['Scatter b'] / (1 - g)
-        media[1+i] = mua, mus, g, lp['n']
+        g = lp["g"]
+        mua = sum(get_extinction_coeffs(wavelen, k) * v for k, v in lp["components"].items())
+        mus = lp["Scatter A"] * wavelen ** -lp["Scatter b"] / (1 - g)
+        media[1 + i] = mua, mus, g, lp["n"]
     return media
 
 
 def _create_conc(water, HbT, stO2):
-    return {'water': water, 'HbO': HbT * stO2, 'HbR': HbT * (1 - stO2)}
+    return {"water": water, "HbO": HbT * stO2, "HbR": HbT * (1 - stO2)}
 
 
 base_tissue_properties = {
-    "Brain": {"components": _create_conc(water=0.75, HbT=103e-6, stO2=0.65), "Scatter A": 12.317063907, "Scatter b": 0.35, "BFi": 6e-6, "g": 0.9, "n": 1.4},
-    "CSF": {"components": _create_conc(water=1, HbT=0, stO2=0), "Scatter A": 0.098536511, "Scatter b": 0.35, "BFi": 1e-9, "g": 0.9, "n": 1.4},
-    "Scalp/Skull": {"components": _create_conc(water=0.26, HbT=75e-6, stO2=0.75), "Scatter A": 8.868286013, "Scatter b": 0.35, "BFi": 1e-6, "g": 0.9, "n": 1.4},
-    "Breast": {"components": _create_conc(water=0.51, HbT=30e-6, stO2=0.70), "Scatter A": 2700., "Scatter b": 1.2, "BFi": 6e-6, "g": 0.9, "n": 1.4},
+    "Brain": {
+        "components": _create_conc(water=0.75, HbT=103e-6, stO2=0.65),
+        "Scatter A": 12.317063907,
+        "Scatter b": 0.35,
+        "BFi": 6e-6,
+        "g": 0.9,
+        "n": 1.4,
+    },
+    "CSF": {
+        "components": _create_conc(water=1, HbT=0, stO2=0),
+        "Scatter A": 0.098536511,
+        "Scatter b": 0.35,
+        "BFi": 1e-9,
+        "g": 0.9,
+        "n": 1.4,
+    },
+    "Scalp/Skull": {
+        "components": _create_conc(water=0.26, HbT=75e-6, stO2=0.75),
+        "Scatter A": 8.868286013,
+        "Scatter b": 0.35,
+        "BFi": 1e-6,
+        "g": 0.9,
+        "n": 1.4,
+    },
+    "Breast": {
+        "components": _create_conc(water=0.51, HbT=30e-6, stO2=0.70),
+        "Scatter A": 2700.0,
+        "Scatter b": 1.2,
+        "BFi": 6e-6,
+        "g": 0.9,
+        "n": 1.4,
+    },
 }
 
 base_mcx_cfg = {
-    'autopilot': True,
-    'gpuid': 0,
-    'nphoton': 3e8,
-    'maxdetphoton': 1.5e8,
-    'tstart': 0,
-    'tend': 5e-9,
-    'tstep': 1e-10,
-    'issrcfrom0': True,
-    'isreflect': True,
-    'ismomentum': True,
-    'issaveexit': False,
+    "autopilot": True,
+    "gpuid": 0,
+    "nphoton": 3e8,
+    "maxdetphoton": 1.5e8,
+    "tstart": 0,
+    "tend": 5e-9,
+    "tstep": 1e-10,
+    "issrcfrom0": True,
+    "isreflect": True,
+    "ismomentum": True,
+    "issaveexit": False,
 }

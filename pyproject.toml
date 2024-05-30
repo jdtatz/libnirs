@@ -27,3 +27,6 @@ dev = ["sympy"]
 [tool.setuptools]
 packages = ["libnirs"]
 package-data = {"libnirs"=['libnirs/extc.npz']}
+
+[tool.black]
+line-length = 120

@@ -1,8 +1,10 @@
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
+
 # FIXME: use actual `StrEnum` when min version is 3.11
-from enum import IntFlag, Enum as StrEnum
-from typing import Literal, NamedTuple, Optional, TypedDict, SupportsInt
+from enum import Enum as StrEnum
+from enum import IntFlag
+from typing import Literal, NamedTuple, Optional, SupportsInt, TypedDict
 
 import numpy as np
 import numpy.typing as npt
@@ -159,9 +161,7 @@ class MCX:
     maxdetphoton: Optional[int] = None
     """Max number of detected photons that are saved"""
     sradius: Optional[float] = None
-    maxgate: Optional[
-        int
-    ] = None  # FIXME: if `issave2pt` then this should default to `ceil((tend - tstart) / tstep)`
+    maxgate: Optional[int] = None  # FIXME: if `issave2pt` then this should default to `ceil((tend - tstart) / tstep)`
     respin: Optional[int] = None
     isreflect: Optional[bool] = None
     """Reflect at external boundaries?"""
@@ -188,9 +188,7 @@ class MCX:
     srcnum: Optional[int] = None
     omega: Optional[float] = None
     lambda_: Optional[float] = None
-    srcpos: Optional[
-        float3
-    ] = None  # Technically a float4, but mcx discards the fourth component
+    srcpos: Optional[float3] = None  # Technically a float4, but mcx discards the fourth component
     """Source position vector [grid unit]"""
     srcdir: Optional[float4] = None
     """Source direction unit vector [grid unit]"""
@@ -257,7 +255,7 @@ class MCX:
         if seed is not None and np.isscalar(seed):
             # TODO: need python 3.11 to prevent false negatives,
             #  assert isinstance(seed, typing.SupportsInt)
-            cfg["seed"] = int(seed) # type: ignore
+            cfg["seed"] = int(seed)  # type: ignore
         elif seed is not None:
             raise NotImplementedError("`SEED_FROM_FILE` support hasn't been added yet")
 
@@ -286,9 +284,7 @@ class MCX:
 
         if save_det_flags:
             if self.detpos is None:
-                raise MCXValidationError(
-                    "Saving detectors is enabled, but detector positions is not initialized"
-                )
+                raise MCXValidationError("Saving detectors is enabled, but detector positions is not initialized")
             cfg["savedetflag"] = ""
             for sflag, c in _SAVE_FLAG_TO_CHAR_MAP.items():
                 if sflag in save_det_flags:

@@ -1,16 +1,18 @@
-import numpy as np
-from numpy import pi, exp, sqrt, sinh, cosh
-from numba import guvectorize
-import scipy.fft
-from scipy.special import j0, gamma
 from itertools import starmap
-from .utils import jit, integrate, gen_impedance, map_tuples
-from .model import model_ss, model_fd, model_g2
+
+import numpy as np
+import scipy.fft
+from numba import guvectorize
+from numpy import cosh, exp, pi, sinh, sqrt
+from scipy.special import gamma, j0
+
+from .model import model_fd, model_g2, model_ss
+from .utils import gen_impedance, integrate, jit, map_tuples
 
 
 @jit
 def _n_layer_refl(s, z0, zb, ls, D, k2):
-    ''' alpha = sqrt(s^2 + k^2) '''
+    """alpha = sqrt(s^2 + k^2)"""
     n = len(D)
     s2 = s * s
 
@@ -21,12 +23,14 @@ def _n_layer_refl(s, z0, zb, ls, D, k2):
 
     if n == 2:
         l1 = ls[0]
-        signal = (cosh((-z0 + l1)*alpha1)*d1*alpha1 + sinh((-z0 + l1)*alpha1)*d2*alpha2) / \
-            (d1*alpha1*(cosh(l1*alpha1) + zb*sinh(l1*alpha1)*alpha1) + d2*(sinh(l1*alpha1) + zb*cosh(l1*alpha1)*alpha1)*alpha2)
+        signal = (cosh((-z0 + l1) * alpha1) * d1 * alpha1 + sinh((-z0 + l1) * alpha1) * d2 * alpha2) / (
+            d1 * alpha1 * (cosh(l1 * alpha1) + zb * sinh(l1 * alpha1) * alpha1)
+            + d2 * (sinh(l1 * alpha1) + zb * cosh(l1 * alpha1) * alpha1) * alpha2
+        )
         return signal
 
     k_num = (alpha1 * d1 - alpha2 * d2) * exp(-ls[-1] * (alpha1 + alpha2))
-    k_dem = (alpha1 * d1 + alpha2 * d2) * exp( ls[-1] * (alpha1 - alpha2))
+    k_dem = (alpha1 * d1 + alpha2 * d2) * exp(ls[-1] * (alpha1 - alpha2))
 
     d1, d2 = D[n - 3], d1
     alpha1, alpha2 = sqrt(s2 + k2[n - 3]), alpha1
@@ -35,34 +39,46 @@ def _n_layer_refl(s, z0, zb, ls, D, k2):
         adn = alpha2 * d2
         kaa = (adi + adn) * exp(-ls[i] * (alpha1 - alpha2))
         kab = (adi - adn) * exp(-ls[i] * (alpha1 + alpha2))
-        kba = (adi - adn) * exp( ls[i] * (alpha1 + alpha2))
-        kbb = (adi + adn) * exp( ls[i] * (alpha1 - alpha2))
+        kba = (adi - adn) * exp(ls[i] * (alpha1 + alpha2))
+        kbb = (adi + adn) * exp(ls[i] * (alpha1 - alpha2))
         k_num, k_dem = kaa * k_num + kab * k_dem, kba * k_num + kbb * k_dem
 
         d1, d2 = D[i - 1], d1
         alpha1, alpha2 = sqrt(s2 + k2[i - 1]), alpha1
     l1 = ls[0]
-    signal = (cosh((-z0 + l1)*alpha1)*(k_dem + exp(2*l1*alpha2)*k_num)*d1*alpha1 + (k_dem - exp(2*l1*alpha2)*k_num)*sinh((-z0 + l1)*alpha1)*d2*alpha2) / \
-        ((k_dem + exp(2*l1*alpha2)*k_num)*d1*alpha1*(cosh(l1*alpha1) + zb*sinh(l1*alpha1)*alpha1) + (k_dem - exp(2*l1*alpha2)*k_num)*d2*(sinh(l1*alpha1) + zb*cosh(l1*alpha1)*alpha1)*alpha2)
+    signal = (
+        cosh((-z0 + l1) * alpha1) * (k_dem + exp(2 * l1 * alpha2) * k_num) * d1 * alpha1
+        + (k_dem - exp(2 * l1 * alpha2) * k_num) * sinh((-z0 + l1) * alpha1) * d2 * alpha2
+    ) / (
+        (k_dem + exp(2 * l1 * alpha2) * k_num) * d1 * alpha1 * (cosh(l1 * alpha1) + zb * sinh(l1 * alpha1) * alpha1)
+        + (k_dem - exp(2 * l1 * alpha2) * k_num) * d2 * (sinh(l1 * alpha1) + zb * cosh(l1 * alpha1) * alpha1) * alpha2
+    )
     return signal
 
 
-@guvectorize('(),(),(),(n),(n),(n)->()', nopython=True, target='cpu')
+@guvectorize("(),(),(),(n),(n),(n)->()", nopython=True, target="cpu")
 def _vectorize_n_layer_refl(s, z0, zb, ls, D, k2, result):
     result[()] = _n_layer_refl(s, z0, zb, ls, D, k2)
 
 
 _cuda_vectorize_n_layer_refl_fn = None
 
+
 def _get_cuda_vectorize_n_layer_refl():
     global _cuda_vectorize_n_layer_refl_fn
 
     if _cuda_vectorize_n_layer_refl_fn is None:
-        _ty_sig = lambda ty: f'({ty}, {ty}, {ty}, {ty}[:], {ty}[:], {ty}[:], {ty}[:])'
+        _ty_sig = lambda ty: f"({ty}, {ty}, {ty}, {ty}[:], {ty}[:], {ty}[:], {ty}[:])"
 
-        @guvectorize([_ty_sig('f4'), _ty_sig('f8'), _ty_sig('c8'), _ty_sig('c16')], '(),(),(),(n),(n),(n)->()', nopython=True, target='cuda')
+        @guvectorize(
+            [_ty_sig("f4"), _ty_sig("f8"), _ty_sig("c8"), _ty_sig("c16")],
+            "(),(),(),(n),(n),(n)->()",
+            nopython=True,
+            target="cuda",
+        )
         def _cuda_vectorize_n_layer_refl(s, z0, zb, ls, D, k2, result):
             result[()] = _n_layer_refl(s, z0, zb, ls, D, k2)
+
         _cuda_vectorize_n_layer_refl_fn = _cuda_vectorize_n_layer_refl
     return _cuda_vectorize_n_layer_refl_fn
 
@@ -75,7 +91,7 @@ def _D(mua, musp):
 @jit
 def _refl_integrator(s, rho, z0, zb, ls, D, k2):
     """Naive Inverse HankelTransform"""
-    return s*j0(s*rho)*_n_layer_refl(s, z0, zb, ls, D, k2)
+    return s * j0(s * rho) * _n_layer_refl(s, z0, zb, ls, D, k2)
 
 
 def _map_tuples(func, *tuples):
@@ -95,10 +111,12 @@ def _expand_first_ndim(arr, ndim):
 
 
 def fourierBesselJv(omega):
-    return gamma((1 - 1j * omega) / 2) / gamma((1 + 1j * omega) / 2) * 2**(-1j * omega)
+    return gamma((1 - 1j * omega) / 2) / gamma((1 + 1j * omega) / 2) * 2 ** (-1j * omega)
 
 
-def fft_hankel(integrator, integrator_args, integrator_kwargs, log_limit, npoints, in_ndim=0, is_complex=True, fft=scipy.fft):
+def fft_hankel(
+    integrator, integrator_args, integrator_kwargs, log_limit, npoints, in_ndim=0, is_complex=True, fft=scipy.fft
+):
     """Inverse HankelTransform using Fast Fourier Transform"""
     if hasattr(fft, "next_fast_len"):
         npoints = fft.next_fast_len(npoints, not is_complex)
@@ -123,7 +141,7 @@ def fft_hankel(integrator, integrator_args, integrator_kwargs, log_limit, npoint
     del fres
     hres = fft.ifftshift(shifted_hres, axes=-1)
     del shifted_hres
-    hres *= sp.size * dw / (2*pi)
+    hres *= sp.size * dw / (2 * pi)
     hres /= r
     return sp, hres
 
@@ -139,6 +157,7 @@ def _refl_fft_hankel(z0, zb, depths, D, k2, log_limit, npoints, use_gpu=False):
     args = (contiguous_expand(a) for a in (z0, zb, depths, D, k2))
     if use_gpu:
         import cupy
+
         refl = _get_cuda_vectorize_n_layer_refl()
         args = map(cupy.asarray, args)
         fft = cupy.fft
@@ -148,6 +167,7 @@ def _refl_fft_hankel(z0, zb, depths, D, k2, log_limit, npoints, use_gpu=False):
     sp, hres = fft_hankel(refl, args, dict(axis=-1), log_limit, npoints, in_ndim, is_complex=is_complex, fft=fft)
     if use_gpu:
         import cupy
+
         sp = cupy.asnumpy(sp)
         hres = cupy.asnumpy(hres)
     return sp, hres
@@ -157,19 +177,20 @@ def _deprecated(func):
     """This is a decorator which can be used to mark functions
     as deprecated. It will result in a warning being emitted
     when the function is used."""
-    import warnings
     import functools
+    import warnings
 
     reason = "use fft version instead, naive hankel tranform integration has uncontrollable numerical error"
 
     @functools.wraps(func)
     def new_func(*args, **kwargs):
-        warnings.simplefilter('always', DeprecationWarning)  # turn off filter
-        warnings.warn(f"Call to deprecated function {func.__name__} ({reason}).",
-                      category=DeprecationWarning,
-                      stacklevel=2)
-        warnings.simplefilter('default', DeprecationWarning)  # reset filter
+        warnings.simplefilter("always", DeprecationWarning)  # turn off filter
+        warnings.warn(
+            f"Call to deprecated function {func.__name__} ({reason}).", category=DeprecationWarning, stacklevel=2
+        )
+        warnings.simplefilter("default", DeprecationWarning)  # reset filter
         return func(*args, **kwargs)
+
     return new_func
 
 
@@ -193,14 +214,14 @@ def model_nlayer_ss(rho, mua, musp, depths, n, n_ext=1, int_limit=10, int_divs=1
         int_divs := Number of subregions to integrate over []
     """
     nlayer = len(mua)
-    imp = gen_impedance(n/n_ext)
+    imp = gen_impedance(n / n_ext)
     D = map_tuples(_D, mua, musp)
     D1 = D[0]
-    z0 = 3*D1
+    z0 = 3 * D1
     assert depths[0] >= z0
-    zb = 2*D1*imp
+    zb = 2 * D1 * imp
     k2 = map_tuples(_ss_k2, mua, D)
-    return integrate(_refl_integrator, 0, int_limit, int_divs, (rho, z0, zb, depths, D, k2)) / (2*pi)
+    return integrate(_refl_integrator, 0, int_limit, int_divs, (rho, z0, zb, depths, D, k2)) / (2 * pi)
 
 
 def model_nlayer_ss_fft(mua, musp, depths, n, n_ext=1, log_limit=15, npoints=512, use_gpu=False):
@@ -218,9 +239,9 @@ def model_nlayer_ss_fft(mua, musp, depths, n, n_ext=1, log_limit=15, npoints=512
     imp = gen_impedance(n / n_ext)
     D = _map_tuples(_D, mua, musp)
     D1 = D[0]
-    z0 = 3*D1
+    z0 = 3 * D1
     # assert np.all(depths[0] >= z0)
-    zb = 2*D1*imp
+    zb = 2 * D1 * imp
     k2 = _map_tuples(_ss_k2, mua, D)
     sp, h = _refl_fft_hankel(z0, zb, depths, D, k2, log_limit, npoints, use_gpu)
     h /= 2 * pi
@@ -249,17 +270,17 @@ def model_nlayer_fd(rho, mua, musp, depths, freq, c, n, n_ext=1, int_limit=10, i
         int_divs := Number of subregions to integrate over []
     """
     nlayer = len(mua)
-    imp = gen_impedance(n/n_ext)
+    imp = gen_impedance(n / n_ext)
     D = map_tuples(_D, mua, musp)
     D1 = D[0]
-    z0 = 3*D1
+    z0 = 3 * D1
     assert depths[0] >= z0
-    zb = 2*D1*imp
-    w = 2*pi*freq
+    zb = 2 * D1 * imp
+    w = 2 * pi * freq
     v = c / n
-    wave = w/v*1j
+    wave = w / v * 1j
     k2 = map_tuples(lambda a, d: _fd_k2(a, d, wave), mua, D)
-    return integrate(_refl_integrator, 0, int_limit, int_divs, (rho, z0, zb, depths, D, k2)) / (2*pi)
+    return integrate(_refl_integrator, 0, int_limit, int_divs, (rho, z0, zb, depths, D, k2)) / (2 * pi)
 
 
 def model_nlayer_fd_fft(mua, musp, depths, freq, c, n, n_ext=1, log_limit=15, npoints=512, use_gpu=False):
@@ -279,12 +300,12 @@ def model_nlayer_fd_fft(mua, musp, depths, freq, c, n, n_ext=1, log_limit=15, np
     imp = gen_impedance(n / n_ext)
     D = _map_tuples(_D, mua, musp)
     D1 = D[0]
-    z0 = 3*D1
+    z0 = 3 * D1
     # assert np.all(depths[0] >= z0)
-    zb = 2*D1*imp
-    w = 2*pi*freq
+    zb = 2 * D1 * imp
+    w = 2 * pi * freq
     v = c / n
-    wave = w/v*1j
+    wave = w / v * 1j
     k2 = _map_tuples(lambda a, d: _fd_k2(a, d, wave), mua, D)
     sp, h = _refl_fft_hankel(z0, zb, depths, D, k2, log_limit, npoints, use_gpu)
     h /= 2 * pi
@@ -316,12 +337,12 @@ def model_nlayer_g1(rho, tau, mua, musp, depths, BFi, wavelength, n, n_ext=1, ta
         int_divs := Number of subregions to integrate over []
     """
     nlayer = len(mua)
-    imp = gen_impedance(n/n_ext)
+    imp = gen_impedance(n / n_ext)
     D = map_tuples(_D, mua, musp)
     D1 = D[0]
-    z0 = 3*D1
+    z0 = 3 * D1
     assert depths[0] >= z0
-    zb = 2*D1*imp
+    zb = 2 * D1 * imp
     k0 = 2 * pi * n / wavelength
     k2 = map_tuples(lambda a, sp, d, b: _g1_k2(a, sp, d, b, k0, tau), mua, musp, D, BFi)
     k2_norm = map_tuples(lambda a, sp, d, b: _g1_k2(a, sp, d, b, k0, tau_0), mua, musp, D, BFi)
@@ -331,7 +352,9 @@ def model_nlayer_g1(rho, tau, mua, musp, depths, BFi, wavelength, n, n_ext=1, ta
     return g1
 
 
-def model_nlayer_g1_fft(tau, mua, musp, depths, BFi, wavelength, n, n_ext=1, tau_0=0, log_limit=15, npoints=512, use_gpu=False):
+def model_nlayer_g1_fft(
+    tau, mua, musp, depths, BFi, wavelength, n, n_ext=1, tau_0=0, log_limit=15, npoints=512, use_gpu=False
+):
     """Model g1 (autocorelation) for Diffuse Correlation Spectroscopy in N Layers with Partial-Current Boundary Condition.
     Source1: "Noninvasive determination of the optical properties of two-layered turbid media"
     Source2: "Diffuse optics for tissue monitoring and tomography"
@@ -351,9 +374,9 @@ def model_nlayer_g1_fft(tau, mua, musp, depths, BFi, wavelength, n, n_ext=1, tau
     imp = gen_impedance(n / n_ext)
     D = _map_tuples(_D, mua, musp)
     D1 = D[0]
-    z0 = 3*D1
+    z0 = 3 * D1
     # assert np.all(depths[0] >= z0)
-    zb = 2*D1*imp
+    zb = 2 * D1 * imp
     k0 = 2 * pi * n / wavelength
     k2 = _map_tuples(lambda a, sp, d, b: _g1_k2(a, sp, d, b, k0, tau), mua, musp, D, BFi)
     k2_norm = _map_tuples(lambda a, sp, d, b: _g1_k2(a, sp, d, b, k0, tau_0), mua, musp, D, BFi)
@@ -364,7 +387,9 @@ def model_nlayer_g1_fft(tau, mua, musp, depths, BFi, wavelength, n, n_ext=1, tau
 
 
 @_deprecated
-def model_nlayer_g2(rho, tau, mua, musp, depths, BFi, wavelength, n, n_ext=1, beta=0.5, tau_0=0, int_limit=10, int_divs=10):
+def model_nlayer_g2(
+    rho, tau, mua, musp, depths, BFi, wavelength, n, n_ext=1, beta=0.5, tau_0=0, int_limit=10, int_divs=10
+):
     """Model g2 (autocorelation) for Diffuse Correlation Spectroscopy in N Layers with Partial-Current Boundary Condition.
     Source1: "Noninvasive determination of the optical properties of two-layered turbid media"
     Source2: "Diffuse optics for tissue monitoring and tomography"
@@ -387,7 +412,9 @@ def model_nlayer_g2(rho, tau, mua, musp, depths, BFi, wavelength, n, n_ext=1, be
     return 1 + beta * g1**2
 
 
-def model_nlayer_g2_fft(tau, mua, musp, depths, BFi, wavelength, n, n_ext=1, tau_0=0, log_limit=15, npoints=512, use_gpu=False):
+def model_nlayer_g2_fft(
+    tau, mua, musp, depths, BFi, wavelength, n, n_ext=1, tau_0=0, log_limit=15, npoints=512, use_gpu=False
+):
     """Model g2 (autocorelation) for Diffuse Correlation Spectroscopy in N Layers with Partial-Current Boundary Condition.
     Source1: "Noninvasive determination of the optical properties of two-layered turbid media"
     Source2: "Diffuse optics for tissue monitoring and tomography"
