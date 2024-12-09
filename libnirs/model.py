@@ -208,7 +208,7 @@ model_fd_g1 = vectorize((), target="cpu")(_model_fd_g1)
 # _j_model_fd_g1 = jit(_model_fd_g1)
 
 
-def _model_fd_g2(
+def _model_fd_g2_s(
     tau,
     bfi,
     beta,
@@ -253,6 +253,57 @@ def _model_fd_g2(
     g1_no_w = _ecbc(k_tau_no_w, rho, D, n, n_ext) / G1_norm
     g1_sq = g1.real * g1.real + g1.imag * g1.imag
     return 1 + beta * (1 - src_mod_depth) * g1_no_w**2 + beta * src_mod_depth * g1_sq
+
+
+model_fd_g2_simplified = vectorize((), target="cpu")(_model_fd_g2_s)
+
+
+def _model_fd_g2(
+    tau,
+    bfi,
+    beta,
+    src_mod_depth,
+    mua,
+    musp,
+    wavelength,
+    rho,
+    first_tau_delay,
+    n,
+    n_ext,
+    freq,
+    c,
+):
+    """Model g2 (autocorelation) for Frequency Domain Diffuse correlation spectroscopy with Extrapolated Boundary Condition.
+    Source: "Frequency Domain Diffuse Optics Spectroscopies for Quantitative Measurement of Tissue Optical Properties"
+    parameters:
+        tau := Correlation time [time]
+        bfi := Blood-Flow Index [1/length^2/time]
+        beta := Beta derived for Siegert relation []
+        src_mod_depth := Source Modulation Depth []
+        mua := Absorption Coefficent [1/length]
+        musp := Reduced Scattering Coefficent [1/length]
+        wavelength := Wavelength of Light [length]
+        rho := Source-Detector Seperation [length]
+        first_tau_delay := The first tau for normalization [time]
+        n := Media Index of Refraction []
+        n_ext := External Index of Refraction []
+        freq := Frequncy of Source [1/time]
+        c := Speed of Light in vacuum [length/time]
+    """
+    # return 1 + beta * ((_j_model_g1(...) + src_mod_depth * abs(_j_model_fd_g1(...))) / (1 + src_mod_depth))**2
+    D = 1 / (3 * (mua + musp))
+    v = c / n
+    omega = 2 * pi * freq
+    k0 = 2 * pi * n / wavelength
+    k_tau = sqrt((mua + 2 * musp * k0**2 * bfi * tau - 1j * (omega / v)) / D)
+    k_tau_no_w = sqrt((mua + 2 * musp * k0**2 * bfi * tau) / D)
+    k_norm = sqrt((mua + 2 * musp * k0**2 * bfi * first_tau_delay) / D)
+    G1_norm = _ecbc(k_norm, rho, D, n, n_ext)
+    g1_ac_c = _ecbc(k_tau, rho, D, n, n_ext) / G1_norm
+    g1_dc = _ecbc(k_tau_no_w, rho, D, n, n_ext) / G1_norm
+    # g1_ac = hypot(g1_ac_c.real, g1_ac_c.imag)
+    g1_ac = abs(g1_ac_c)
+    return 1 + beta * ((g1_dc + src_mod_depth * g1_ac) / (1 + src_mod_depth))**2
 
 
 model_fd_g2 = vectorize((), target="cpu")(_model_fd_g2)
