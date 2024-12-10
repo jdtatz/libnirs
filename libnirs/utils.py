@@ -10,7 +10,7 @@ from numba.core.base import BaseContext as CodegenContext
 from numba.core.typing import BaseContext as TypingContext
 from numba.core.typing import Signature
 from numba.extending import intrinsic
-from numpy import arcsin, cos, sin, sqrt
+from numpy import sqrt, minimum
 
 jit = partial(_jit, nopython=True, nogil=True, error_model="numpy")
 
@@ -141,27 +141,34 @@ def gen_impedance(n):
 
 
 @jit
-def _gen_reflectance_coeff(t, n, m):
-    Rs = ((n * cos(t) - m * sqrt(1 - (n / m * sin(t)) ** 2)) / (n * cos(t) + m * sqrt(1 - (n / m * sin(t)) ** 2))) ** 2
-    Rp = ((n * sqrt(1 - (n / m * sin(t)) ** 2) - m * cos(t)) / (n * sqrt(1 - (n / m * sin(t)) ** 2) + m * cos(t))) ** 2
+def _gen_reflectance_coeff(u, n2):
+    s = sqrt(u**2 + n2 - 1)
+    Rs = ((u - s) / (u + s)) ** 2
+    Rp = ((s - n2 * u) / (s + n2 * u)) ** 2
     Rfres = (Rs + Rp) / 2
-    return 3 * (1 - Rfres) * cos(t) ** 2 * sin(t) / 2
+    return 3 * (1 - Rfres) * u**2 / 2
 
 
 @jit
-def _gen_fluence_rate_coeff(t, n, m):
-    Rs = ((n * cos(t) - m * sqrt(1 - (n / m * sin(t)) ** 2)) / (n * cos(t) + m * sqrt(1 - (n / m * sin(t)) ** 2))) ** 2
-    Rp = ((n * sqrt(1 - (n / m * sin(t)) ** 2) - m * cos(t)) / (n * sqrt(1 - (n / m * sin(t)) ** 2) + m * cos(t))) ** 2
+def _gen_fluence_rate_coeff(u, n2):
+    s = sqrt(u**2 + n2 - 1)
+    Rs = ((u - s) / (u + s)) ** 2
+    Rp = ((s - n2 * u) / (s + n2 * u)) ** 2
     Rfres = (Rs + Rp) / 2
-    return (1 - Rfres) * cos(t) * sin(t) / 2
+    return (1 - Rfres) * u / 2
 
 
 @jit
 def gen_coeffs(n, n_ext):
+    if n == n_ext:
+        return 1.0, 0.5, 0.25
+    n2 = (n_ext / n)**2
+    int_u = minimum(1.0, n2)
+    lb = sqrt(1 - int_u)
     return (
         gen_impedance(n / n_ext),
-        integrate(_gen_reflectance_coeff, 0, arcsin(n_ext / n), 10, (n, n_ext)),
-        integrate(_gen_fluence_rate_coeff, 0, arcsin(n_ext / n), 10, (n, n_ext)),
+        integrate(_gen_reflectance_coeff, lb, 1.0, 10, (n2,)),
+        integrate(_gen_fluence_rate_coeff, lb, 1.0, 10, (n2,)),
     )
 
 
