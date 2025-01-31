@@ -165,7 +165,7 @@ def model_g1_unnorm(tau, bfi, mua, musp, wavelength, rho, n_media, n_ext):
     Source: "Diffuse optics for tissue monitoring and tomography"
     parameters:
         tau := Correlation time [time]
-        bfi := Blood-Flow Index [1/length^2/time]
+        bfi := Blood-Flow Index [length^2/time]
         mua := Absorption Coefficent [1/length]
         musp := Reduced Scattering Coefficent [1/length]
         wavelength := Wavelength of Light [length]
@@ -184,7 +184,7 @@ def model_fd_g1_unnorm(tau, bfi, mua, musp, wavelength, rho, n_media, n_ext, fre
     Source: "Frequency Domain Diffuse Correlation Spectroscopy: A New Method for Simultaneous Estimation of Static and Dynamic Tissue Optical Properties"
     parameters:
         tau := Correlation time [time]
-        bfi := Blood-Flow Index [1/length^2/time]
+        bfi := Blood-Flow Index [length^2/time]
         mua := Absorption Coefficent [1/length]
         musp := Reduced Scattering Coefficent [1/length]
         wavelength := Wavelength of Light [length]
@@ -207,7 +207,7 @@ def model_g1_norm(tau, bfi, mua, musp, wavelength, rho, n_media, n_ext):
     Source: "Diffuse optics for tissue monitoring and tomography"
     parameters:
         tau := Correlation time [time]
-        bfi := Blood-Flow Index [1/length^2/time]
+        bfi := Blood-Flow Index [length^2/time]
         mua := Absorption Coefficent [1/length]
         musp := Reduced Scattering Coefficent [1/length]
         wavelength := Wavelength of Light [length]
@@ -237,7 +237,7 @@ def model_g2(tau, bfi, beta, mua, musp, wavelength, rho, n_media, n_ext):
     Source: "Diffuse optics for tissue monitoring and tomography"
     parameters:
         tau := Correlation time [time]
-        bfi := Blood-Flow Index [1/length^2/time]
+        bfi := Blood-Flow Index [length^2/time]
         beta := Beta derived for Siegert relation []
         mua := Absorption Coefficent [1/length]
         musp := Reduced Scattering Coefficent [1/length]
@@ -255,7 +255,7 @@ def model_fd_g1_norm(tau, bfi, mua, musp, wavelength, rho, n_media, n_ext, freq,
     Source: "Frequency Domain Diffuse Correlation Spectroscopy: A New Method for Simultaneous Estimation of Static and Dynamic Tissue Optical Properties"
     parameters:
         tau := Correlation time [time]
-        bfi := Blood-Flow Index [1/length^2/time]
+        bfi := Blood-Flow Index [length^2/time]
         mua := Absorption Coefficent [1/length]
         musp := Reduced Scattering Coefficent [1/length]
         wavelength := Wavelength of Light [length]
@@ -317,7 +317,7 @@ def model_fd_g2_simplified(
     Source: "Frequency Domain Diffuse Correlation Spectroscopy: A New Method for Simultaneous Estimation of Static and Dynamic Tissue Optical Properties"
     parameters:
         tau := Correlation time [time]
-        bfi := Blood-Flow Index [1/length^2/time]
+        bfi := Blood-Flow Index [length^2/time]
         beta := Beta derived for Siegert relation []
         src_mod_depth := Source Modulation Depth []
         mua := Absorption Coefficent [1/length]
@@ -361,7 +361,7 @@ def model_fd_g2(
     Source: "Frequency Domain Diffuse Optics Spectroscopies for Quantitative Measurement of Tissue Optical Properties"
     parameters:
         tau := Correlation time [time]
-        bfi := Blood-Flow Index [1/length^2/time]
+        bfi := Blood-Flow Index [length^2/time]
         beta := Beta derived for Siegert relation []
         src_mod_depth := Source Modulation Depth []
         mua := Absorption Coefficent [1/length]
