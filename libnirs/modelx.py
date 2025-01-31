@@ -2,12 +2,25 @@
 Homogenous Modeling of Reflectance
 """
 
-from jax.numpy import exp, pi, sqrt
+from jax.numpy import exp, imag, iscomplexobj, pi, real, sqrt, square
 from jax.scipy.special import erfc
 
 from .fresnelx import ecbc_coeffs_exact, ecbc_coeffs_quad, impedence_exact, impedence_quad
 
 USE_EXACT_COEFS = True
+
+
+def cabs(x):
+    """Return `abs(x) if iscomplexobj(x) else x`."""
+    return abs(x) if iscomplexobj(x) else x
+
+
+def abs_square(x):
+    """Return `square(abs(x))`."""
+    if iscomplexobj(x):
+        return square(real(x)) + square(imag(x))
+    else:
+        return square(x)
 
 
 def _ecbc_coeffs(n_media, n_ext):
@@ -143,8 +156,8 @@ def model_td(t, rho, mua, musp, n_media, n_ext, c):
     return pcbc_td_reflectance(t, rho, k, mua, musp, n_media, n_ext, c)
 
 
-def model_unnorm_G1(tau, bfi, mua, musp, wavelength, rho, n_media, n_ext):
-    """Model G1 (unnormalized autocorelation) for Diffuse correlation spectroscopy with Extrapolated Boundary Condition.
+def model_g1_unnorm(tau, bfi, mua, musp, wavelength, rho, n_media, n_ext):
+    """Model G1 (unnormalized electric field autocorrelation) for Diffuse correlation spectroscopy with Extrapolated Boundary Condition.
     Source: "Diffuse optics for tissue monitoring and tomography"
     parameters:
         tau := Correlation time [time]
@@ -162,8 +175,8 @@ def model_unnorm_G1(tau, bfi, mua, musp, wavelength, rho, n_media, n_ext):
     return ecbc_reflectance(rho, k, mua, musp, n_media, n_ext)
 
 
-def model_unnorm_fd_G1(tau, bfi, mua, musp, wavelength, rho, n_media, n_ext, freq, c):
-    """Model G1 (unnormalized autocorelation) for Frequency Domain Diffuse correlation spectroscopy with Extrapolated Boundary Condition.
+def model_fd_g1_unnorm(tau, bfi, mua, musp, wavelength, rho, n_media, n_ext, freq, c):
+    """Model G1 (unnormalized electric field autocorrelation) for Frequency Domain Diffuse correlation spectroscopy with Extrapolated Boundary Condition.
     Source: "Frequency Domain Diffuse Correlation Spectroscopy: A New Method for Simultaneous Estimation of Static and Dynamic Tissue Optical Properties"
     parameters:
         tau := Correlation time [time]
@@ -185,8 +198,8 @@ def model_unnorm_fd_G1(tau, bfi, mua, musp, wavelength, rho, n_media, n_ext, fre
     return abs(ecbc_reflectance(rho, k, mua, musp, n_media, n_ext))
 
 
-def model_g1(tau, bfi, mua, musp, wavelength, rho, n_media, n_ext):
-    """Model g1 (autocorelation) for Diffuse correlation spectroscopy with Extrapolated Boundary Condition.
+def model_g1_norm(tau, bfi, mua, musp, wavelength, rho, n_media, n_ext):
+    """Model g1 (normalized electric field autocorrelation) for Diffuse correlation spectroscopy with Extrapolated Boundary Condition.
     Source: "Diffuse optics for tissue monitoring and tomography"
     parameters:
         tau := Correlation time [time]
@@ -206,8 +219,17 @@ def model_g1(tau, bfi, mua, musp, wavelength, rho, n_media, n_ext):
     return ecbc_reflectance(rho, k_tau, mua, musp, n_media, n_ext) / G1_norm
 
 
+def g2_from_g1(g1, beta):
+    """Compute g2 (normalized intensity autocorrelation) using the Siegert relation
+    parameters:
+        g1 := normalized electric field autocorrelation []
+        beta := Beta derived for Siegert relation []
+    """
+    return 1 + beta * abs_square(g1)
+
+
 def model_g2(tau, bfi, beta, mua, musp, wavelength, rho, n_media, n_ext):
-    """Model g2 (autocorelation) for Diffuse correlation spectroscopy with Extrapolated Boundary Condition.
+    """Model g2 (normalized intensity autocorrelation) for Diffuse correlation spectroscopy with Extrapolated Boundary Condition.
     Source: "Diffuse optics for tissue monitoring and tomography"
     parameters:
         tau := Correlation time [time]
@@ -220,12 +242,12 @@ def model_g2(tau, bfi, beta, mua, musp, wavelength, rho, n_media, n_ext):
         n_media := Media Index of Refraction []
         n_ext := External Index of Refraction []
     """
-    g1 = model_g1(tau, bfi, mua, musp, wavelength, rho, n_media, n_ext)
-    return 1 + beta * g1**2
+    g1 = model_g1_norm(tau, bfi, mua, musp, wavelength, rho, n_media, n_ext)
+    return g2_from_g1(g1, beta)
 
 
-def model_fd_g1(tau, bfi, mua, musp, wavelength, rho, n_media, n_ext, freq, c):
-    """Model g1 (autocorelation) for Frequency Domain Diffuse correlation spectroscopy with Extrapolated Boundary Condition.
+def model_fd_g1_norm(tau, bfi, mua, musp, wavelength, rho, n_media, n_ext, freq, c):
+    """Model g1 (normalized electric field autocorrelation) for Frequency Domain Diffuse correlation spectroscopy with Extrapolated Boundary Condition.
     Source: "Frequency Domain Diffuse Correlation Spectroscopy: A New Method for Simultaneous Estimation of Static and Dynamic Tissue Optical Properties"
     parameters:
         tau := Correlation time [time]
@@ -249,6 +271,30 @@ def model_fd_g1(tau, bfi, mua, musp, wavelength, rho, n_media, n_ext, freq, c):
     return abs(ecbc_reflectance(rho, k_tau, mua, musp, n_media, n_ext)) / G1_norm
 
 
+def simplified_fd_g2_from_g1(g1_dc, g1_ac, beta, src_mod_depth):
+    """Compute Frequency Domain g2 (normalized intensity autocorrelation) using the extended Siegert relation
+    Source: "Frequency Domain Diffuse Correlation Spectroscopy: A New Method for Simultaneous Estimation of Static and Dynamic Tissue Optical Properties"
+    parameters:
+        g1_dc := Steady State normalized electric field autocorrelation []
+        g1_ac := Frequency Domain normalized electric field autocorrelation []
+        beta := Beta derived for Siegert relation []
+        src_mod_depth := Source Modulation Depth []
+    """
+    return 1 + beta * (1 - src_mod_depth) * g1_dc**2 + beta * src_mod_depth * abs_square(g1_ac)
+
+
+def expanded_fd_g2_from_g1(g1_dc, g1_ac, beta, src_mod_depth):
+    """Compute Frequency Domain g2 (normalized intensity autocorrelation) using the expanded intensity autocorrelation form
+    Source: "Frequency Domain Diffuse Optics Spectroscopies for Quantitative Measurement of Tissue Optical Properties"
+    parameters:
+        g1_dc := Steady State normalized electric field autocorrelation []
+        g1_ac := Frequency Domain normalized electric field autocorrelation []
+        beta := Beta derived for Siegert relation []
+        src_mod_depth := Source Modulation Depth []
+    """
+    return 1 + beta * ((g1_dc + src_mod_depth * cabs(g1_ac)) / (1 + src_mod_depth)) ** 2
+
+
 def model_fd_g2_simplified(
     tau,
     bfi,
@@ -263,7 +309,7 @@ def model_fd_g2_simplified(
     freq,
     c,
 ):
-    """Model g2 (autocorelation) for Frequency Domain Diffuse correlation spectroscopy with Extrapolated Boundary Condition.
+    """Model g2 (normalized intensity autocorrelation) for Frequency Domain Diffuse correlation spectroscopy with Extrapolated Boundary Condition.
     Source: "Frequency Domain Diffuse Correlation Spectroscopy: A New Method for Simultaneous Estimation of Static and Dynamic Tissue Optical Properties"
     parameters:
         tau := Correlation time [time]
@@ -279,7 +325,7 @@ def model_fd_g2_simplified(
         freq := Frequncy of Source [1/time]
         c := Speed of Light in vacuum [length/time]
     """
-    # return 1 + beta * (1 - src_mod_depth) * model_g1(...)**2 + beta * src_mod_depth * abs(model_fd_g1(...))**2
+    # return 1 + beta * (1 - src_mod_depth) * model_g1(...)**2 + beta * src_mod_depth * abs_square(model_fd_g1(...))
     D = 1 / (3 * (mua + musp))
     v = c / n_media
     omega = 2 * pi * freq
@@ -290,8 +336,7 @@ def model_fd_g2_simplified(
     G1_norm = ecbc_reflectance(rho, k_norm, mua, musp, n_media, n_ext)
     g1_ac = ecbc_reflectance(rho, k_ac, mua, musp, n_media, n_ext) / G1_norm
     g1_dc = ecbc_reflectance(rho, k_dc, mua, musp, n_media, n_ext) / G1_norm
-    g1_ac_sq = g1_ac.real * g1_ac.real + g1_ac.imag * g1_ac.imag
-    return 1 + beta * (1 - src_mod_depth) * g1_dc**2 + beta * src_mod_depth * g1_ac_sq
+    return simplified_fd_g2_from_g1(g1_dc, g1_ac, beta, src_mod_depth)
 
 
 def model_fd_g2(
@@ -308,7 +353,7 @@ def model_fd_g2(
     freq,
     c,
 ):
-    """Model g2 (autocorelation) for Frequency Domain Diffuse correlation spectroscopy with Extrapolated Boundary Condition.
+    """Model g2 (normalized intensity autocorrelation) for Frequency Domain Diffuse correlation spectroscopy with Extrapolated Boundary Condition.
     Source: "Frequency Domain Diffuse Optics Spectroscopies for Quantitative Measurement of Tissue Optical Properties"
     parameters:
         tau := Correlation time [time]
@@ -333,8 +378,6 @@ def model_fd_g2(
     k_dc = sqrt((mua + 2 * musp * k0**2 * bfi * tau) / D)
     k_norm = sqrt(mua / D)
     G1_norm = ecbc_reflectance(rho, k_norm, mua, musp, n_media, n_ext)
-    g1_ac_c = ecbc_reflectance(rho, k_ac, mua, musp, n_media, n_ext) / G1_norm
+    g1_ac = ecbc_reflectance(rho, k_ac, mua, musp, n_media, n_ext) / G1_norm
     g1_dc = ecbc_reflectance(rho, k_dc, mua, musp, n_media, n_ext) / G1_norm
-    # g1_ac = hypot(g1_ac_c.real, g1_ac_c.imag)
-    g1_ac = abs(g1_ac_c)
-    return 1 + beta * ((g1_dc + src_mod_depth * g1_ac) / (1 + src_mod_depth)) ** 2
+    return expanded_fd_g2_from_g1(g1_dc, g1_ac, beta, src_mod_depth)
