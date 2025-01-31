@@ -2,7 +2,7 @@
 Homogenous Modeling of Reflectance
 """
 
-from jax.numpy import exp, imag, iscomplexobj, pi, real, sqrt, square
+from jax.numpy import exp, hypot, imag, iscomplexobj, pi, real, sqrt, square
 from jax.scipy.special import erfc
 
 from .fresnelx import ecbc_coeffs_exact, ecbc_coeffs_quad, impedence_exact, impedence_quad
@@ -50,14 +50,16 @@ def ecbc_reflectance(rho, k, mua, musp, n_media, n_ext):
         Reflectance [1/length^2]
     """
     impedence, fresTj, fresTphi = _ecbc_coeffs(n_media, n_ext)
-    D = 1 / (3 * (mua + musp))  # Diffusion Constant
+    mu_t = mua + musp  # linear transport coefficient
+    ltr = 1 / mu_t  # transport mean free path
+    D = 1 / (3 * mu_t)  # Diffusion Constant
     # z = 0
-    z0 = 3 * D
+    z0 = ltr
     zb = 2 * D * impedence
     # r1 = sqrt(rho ** 2 + (z - z0) ** 2)
-    r1 = sqrt(rho**2 + z0**2)
+    r1 = hypot(rho, z0)
     # r2 = sqrt(rho ** 2 + (z + z0 + 2 * zb) ** 2)
-    r2 = sqrt(rho**2 + (z0 + 2 * zb) ** 2)
+    r2 = hypot(rho, z0 + 2 * zb)
     phi = (exp(-k * r1) / r1 - exp(-k * r2) / r2) / (4 * pi * D)
     j = (z0 * (1 + k * r1) * exp(-k * r1) / r1**3 + (z0 + 2 * zb) * (1 + k * r2) * exp(-k * r2) / r2**3) / (4 * pi)
     return fresTphi * phi + fresTj * j
@@ -79,9 +81,11 @@ def pcbc_td_reflectance(t, rho, k, mua, musp, n_media, n_ext, c):
     """
     impedence = _impedence(n_media, n_ext)
     v = c / n_media  # Speed of light in turbid medium
-    D = 1 / (3 * (mua + musp))  # Diffusion Constant
+    mu_t = mua + musp  # linear transport coefficient
+    ltr = 1 / mu_t  # transport mean free path
+    D = 1 / (3 * mu_t)  # Diffusion Constant
     # z = 0
-    z0 = 3 * D
+    z0 = ltr
     zb = 2 * D * impedence
     alpha = 4 * D * v * t
     return (
