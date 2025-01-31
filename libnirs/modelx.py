@@ -185,7 +185,7 @@ def model_unnorm_fd_G1(tau, bfi, mua, musp, wavelength, rho, n_media, n_ext, fre
     return abs(ecbc_reflectance(rho, k, mua, musp, n_media, n_ext))
 
 
-def model_g1(tau, bfi, mua, musp, wavelength, rho, first_tau_delay, n_media, n_ext):
+def model_g1(tau, bfi, mua, musp, wavelength, rho, n_media, n_ext):
     """Model g1 (autocorelation) for Diffuse correlation spectroscopy with Extrapolated Boundary Condition.
     Source: "Diffuse optics for tissue monitoring and tomography"
     parameters:
@@ -195,19 +195,18 @@ def model_g1(tau, bfi, mua, musp, wavelength, rho, first_tau_delay, n_media, n_e
         musp := Reduced Scattering Coefficent [1/length]
         wavelength := Wavelength of Light [length]
         rho := Source-Detector Seperation [length]
-        first_tau_delay := The first tau for normalization [time]
         n_media := Media Index of Refraction []
         n_ext := External Index of Refraction []
     """
     D = 1 / (3 * (mua + musp))
     k0 = 2 * pi * n_media / wavelength
     k_tau = sqrt((mua + 2 * musp * k0**2 * bfi * tau) / D)
-    k_norm = sqrt((mua + 2 * musp * k0**2 * bfi * first_tau_delay) / D)
+    k_norm = sqrt(mua / D)
     G1_norm = ecbc_reflectance(rho, k_norm, mua, musp, n_media, n_ext)
     return ecbc_reflectance(rho, k_tau, mua, musp, n_media, n_ext) / G1_norm
 
 
-def model_g2(tau, bfi, beta, mua, musp, wavelength, rho, first_tau_delay, n_media, n_ext):
+def model_g2(tau, bfi, beta, mua, musp, wavelength, rho, n_media, n_ext):
     """Model g2 (autocorelation) for Diffuse correlation spectroscopy with Extrapolated Boundary Condition.
     Source: "Diffuse optics for tissue monitoring and tomography"
     parameters:
@@ -218,15 +217,14 @@ def model_g2(tau, bfi, beta, mua, musp, wavelength, rho, first_tau_delay, n_medi
         musp := Reduced Scattering Coefficent [1/length]
         wavelength := Wavelength of Light [length]
         rho := Source-Detector Seperation [length]
-        first_tau_delay := The first tau for normalization [time]
         n_media := Media Index of Refraction []
         n_ext := External Index of Refraction []
     """
-    g1 = model_g1(tau, bfi, mua, musp, wavelength, rho, first_tau_delay, n_media, n_ext)
+    g1 = model_g1(tau, bfi, mua, musp, wavelength, rho, n_media, n_ext)
     return 1 + beta * g1**2
 
 
-def model_fd_g1(tau, bfi, mua, musp, wavelength, rho, first_tau_delay, n_media, n_ext, freq, c):
+def model_fd_g1(tau, bfi, mua, musp, wavelength, rho, n_media, n_ext, freq, c):
     """Model g1 (autocorelation) for Frequency Domain Diffuse correlation spectroscopy with Extrapolated Boundary Condition.
     Source: "Frequency Domain Diffuse Correlation Spectroscopy: A New Method for Simultaneous Estimation of Static and Dynamic Tissue Optical Properties"
     parameters:
@@ -236,7 +234,6 @@ def model_fd_g1(tau, bfi, mua, musp, wavelength, rho, first_tau_delay, n_media, 
         musp := Reduced Scattering Coefficent [1/length]
         wavelength := Wavelength of Light [length]
         rho := Source-Detector Seperation [length]
-        first_tau_delay := The first tau for normalization [time]
         n_media := Media Index of Refraction []
         n_ext := External Index of Refraction []
         freq := Frequncy of Source [1/time]
@@ -247,7 +244,7 @@ def model_fd_g1(tau, bfi, mua, musp, wavelength, rho, first_tau_delay, n_media, 
     omega = 2 * pi * freq
     k0 = 2 * pi * n_media / wavelength
     k_tau = sqrt((mua + 2 * musp * k0**2 * bfi * tau - 1j * (omega / v)) / D)
-    k_norm = sqrt((mua + 2 * musp * k0**2 * bfi * first_tau_delay) / D)
+    k_norm = sqrt(mua / D)
     G1_norm = ecbc_reflectance(rho, k_norm, mua, musp, n_media, n_ext)
     return abs(ecbc_reflectance(rho, k_tau, mua, musp, n_media, n_ext)) / G1_norm
 
@@ -261,7 +258,6 @@ def model_fd_g2_simplified(
     musp,
     wavelength,
     rho,
-    first_tau_delay,
     n_media,
     n_ext,
     freq,
@@ -278,7 +274,6 @@ def model_fd_g2_simplified(
         musp := Reduced Scattering Coefficent [1/length]
         wavelength := Wavelength of Light [length]
         rho := Source-Detector Seperation [length]
-        first_tau_delay := The first tau for normalization [time]
         n_media := Media Index of Refraction []
         n_ext := External Index of Refraction []
         freq := Frequncy of Source [1/time]
@@ -291,7 +286,7 @@ def model_fd_g2_simplified(
     k0 = 2 * pi * n_media / wavelength
     k_ac = sqrt((mua + 2 * musp * k0**2 * bfi * tau - 1j * (omega / v)) / D)
     k_dc = sqrt((mua + 2 * musp * k0**2 * bfi * tau) / D)
-    k_norm = sqrt((mua + 2 * musp * k0**2 * bfi * first_tau_delay) / D)
+    k_norm = sqrt(mua / D)
     G1_norm = ecbc_reflectance(rho, k_norm, mua, musp, n_media, n_ext)
     g1_ac = ecbc_reflectance(rho, k_ac, mua, musp, n_media, n_ext) / G1_norm
     g1_dc = ecbc_reflectance(rho, k_dc, mua, musp, n_media, n_ext) / G1_norm
@@ -308,7 +303,6 @@ def model_fd_g2(
     musp,
     wavelength,
     rho,
-    first_tau_delay,
     n_media,
     n_ext,
     freq,
@@ -325,7 +319,6 @@ def model_fd_g2(
         musp := Reduced Scattering Coefficent [1/length]
         wavelength := Wavelength of Light [length]
         rho := Source-Detector Seperation [length]
-        first_tau_delay := The first tau for normalization [time]
         n_media := Media Index of Refraction []
         n_ext := External Index of Refraction []
         freq := Frequncy of Source [1/time]
@@ -338,7 +331,7 @@ def model_fd_g2(
     k0 = 2 * pi * n_media / wavelength
     k_ac = sqrt((mua + 2 * musp * k0**2 * bfi * tau - 1j * (omega / v)) / D)
     k_dc = sqrt((mua + 2 * musp * k0**2 * bfi * tau) / D)
-    k_norm = sqrt((mua + 2 * musp * k0**2 * bfi * first_tau_delay) / D)
+    k_norm = sqrt(mua / D)
     G1_norm = ecbc_reflectance(rho, k_norm, mua, musp, n_media, n_ext)
     g1_ac_c = ecbc_reflectance(rho, k_ac, mua, musp, n_media, n_ext) / G1_norm
     g1_dc = ecbc_reflectance(rho, k_dc, mua, musp, n_media, n_ext) / G1_norm
