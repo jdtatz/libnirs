@@ -275,35 +275,35 @@ def model_fd_g1_norm(tau, bfi, mua, musp, wavelength, rho, n_media, n_ext, freq,
     return abs(ecbc_reflectance(rho, k_tau, mua, musp, n_media, n_ext)) / G1_norm
 
 
-def simplified_fd_g2_from_g1(g1_dc, g1_ac, beta, src_mod_depth):
+def simplified_fd_g2_from_g1(g1_dc, g1_ac, beta, mod_depth):
     """Compute Frequency Domain g2 (normalized intensity autocorrelation) using the extended Siegert relation
     Source: "Frequency Domain Diffuse Correlation Spectroscopy: A New Method for Simultaneous Estimation of Static and Dynamic Tissue Optical Properties"
     parameters:
         g1_dc := Steady State normalized electric field autocorrelation []
         g1_ac := Frequency Domain normalized electric field autocorrelation []
         beta := Beta derived for Siegert relation []
-        src_mod_depth := Source Modulation Depth []
+        mod_depth := Source Modulation Depth []
     """
-    return 1 + beta * (1 - src_mod_depth) * g1_dc**2 + beta * src_mod_depth * abs_square(g1_ac)
+    return 1 + beta * (1 - mod_depth) * g1_dc**2 + beta * mod_depth * abs_square(g1_ac)
 
 
-def expanded_fd_g2_from_g1(g1_dc, g1_ac, beta, src_mod_depth):
+def expanded_fd_g2_from_g1(g1_dc, g1_ac, beta, mod_depth):
     """Compute Frequency Domain g2 (normalized intensity autocorrelation) using the expanded intensity autocorrelation form
     Source: "Frequency Domain Diffuse Optics Spectroscopies for Quantitative Measurement of Tissue Optical Properties"
     parameters:
         g1_dc := Steady State normalized electric field autocorrelation []
         g1_ac := Frequency Domain normalized electric field autocorrelation []
         beta := Beta derived for Siegert relation []
-        src_mod_depth := Source Modulation Depth []
+        mod_depth := Source Modulation Depth []
     """
-    return 1 + beta * ((g1_dc + src_mod_depth * cabs(g1_ac)) / (1 + src_mod_depth)) ** 2
+    return 1 + beta * ((g1_dc + mod_depth * cabs(g1_ac)) / (1 + mod_depth)) ** 2
 
 
 def model_fd_g2_simplified(
     tau,
     bfi,
     beta,
-    src_mod_depth,
+    mod_depth,
     mua,
     musp,
     wavelength,
@@ -319,7 +319,7 @@ def model_fd_g2_simplified(
         tau := Correlation time [time]
         bfi := Blood-Flow Index [length^2/time]
         beta := Beta derived for Siegert relation []
-        src_mod_depth := Source Modulation Depth []
+        mod_depth := Source Modulation Depth []
         mua := Absorption Coefficent [1/length]
         musp := Reduced Scattering Coefficent [1/length]
         wavelength := Wavelength of Light [length]
@@ -329,7 +329,7 @@ def model_fd_g2_simplified(
         freq := Frequncy of Source [1/time]
         c := Speed of Light in vacuum [length/time]
     """
-    # return 1 + beta * (1 - src_mod_depth) * model_g1(...)**2 + beta * src_mod_depth * abs_square(model_fd_g1(...))
+    # return 1 + beta * (1 - mod_depth) * model_g1(...)**2 + beta * mod_depth * abs_square(model_fd_g1(...))
     D = 1 / (3 * (mua + musp))
     v = c / n_media
     omega = 2 * pi * freq
@@ -340,14 +340,14 @@ def model_fd_g2_simplified(
     G1_norm = ecbc_reflectance(rho, k_norm, mua, musp, n_media, n_ext)
     g1_ac = ecbc_reflectance(rho, k_ac, mua, musp, n_media, n_ext) / G1_norm
     g1_dc = ecbc_reflectance(rho, k_dc, mua, musp, n_media, n_ext) / G1_norm
-    return simplified_fd_g2_from_g1(g1_dc, g1_ac, beta, src_mod_depth)
+    return simplified_fd_g2_from_g1(g1_dc, g1_ac, beta, mod_depth)
 
 
 def model_fd_g2(
     tau,
     bfi,
     beta,
-    src_mod_depth,
+    mod_depth,
     mua,
     musp,
     wavelength,
@@ -363,7 +363,7 @@ def model_fd_g2(
         tau := Correlation time [time]
         bfi := Blood-Flow Index [length^2/time]
         beta := Beta derived for Siegert relation []
-        src_mod_depth := Source Modulation Depth []
+        mod_depth := Source Modulation Depth []
         mua := Absorption Coefficent [1/length]
         musp := Reduced Scattering Coefficent [1/length]
         wavelength := Wavelength of Light [length]
@@ -373,7 +373,7 @@ def model_fd_g2(
         freq := Frequncy of Source [1/time]
         c := Speed of Light in vacuum [length/time]
     """
-    # return 1 + beta * ((model_g1(...) + src_mod_depth * abs(model_fd_g1(...))) / (1 + src_mod_depth))**2
+    # return 1 + beta * ((model_g1(...) + mod_depth * abs(model_fd_g1(...))) / (1 + mod_depth))**2
     D = 1 / (3 * (mua + musp))
     v = c / n_media
     omega = 2 * pi * freq
@@ -384,4 +384,4 @@ def model_fd_g2(
     G1_norm = ecbc_reflectance(rho, k_norm, mua, musp, n_media, n_ext)
     g1_ac = ecbc_reflectance(rho, k_ac, mua, musp, n_media, n_ext) / G1_norm
     g1_dc = ecbc_reflectance(rho, k_dc, mua, musp, n_media, n_ext) / G1_norm
-    return expanded_fd_g2_from_g1(g1_dc, g1_ac, beta, src_mod_depth)
+    return expanded_fd_g2_from_g1(g1_dc, g1_ac, beta, mod_depth)
