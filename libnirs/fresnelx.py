@@ -86,22 +86,14 @@ def _rf_uk_integrands(t, g, is_lower):
     return stack((integrand1, integrand2), 0)
 
 
-def _r_phi_j_lower(n1, n2, rf_u1_int, rf_u2_int):
-    r_phi = 2 * rf_u1_int
-    r_j = 3 * rf_u2_int
+def _r_phi_j_from_ints(n1, n2, g, rf_u1_int, rf_u2_int):
+    is_lte = n1 <= n2
+    g_r = 2 * g / (1 + g)
+    u1 = 2 * rf_u1_int
+    u2 = 3 * rf_u2_int
+    r_phi = select(is_lte, u1, u1 + g_r)
+    r_j = select(is_lte, u2, u2 + sqrt(g_r) ** 3)
     return r_phi, r_j
-
-
-def _r_phi_j_upper(n1, n2, rf_u1_int, rf_u2_int):
-    # n = n1 / n2
-    n_r = n2 / n1
-    r_phi = 2 * rf_u1_int + (1 - n_r**2)
-    r_j = 3 * rf_u2_int + sqrt(1 - n_r**2) ** 3
-    return r_phi, r_j
-
-
-def _r_phi_j_from_ints(n1, n2, rf_u1_int, rf_u2_int):
-    return cond(n1 <= n2, _r_phi_j_lower, _r_phi_j_upper, n1, n2, rf_u1_int, rf_u2_int)
 
 
 def _r_phi_j_cond(n1, n2, rf_uk_int_func):
@@ -140,7 +132,7 @@ def _r_phi_j_quad_inner(n1, n2):
     integrand = _rf_uk_integrands
     (integral1, integral2), _info = quadgk(integrand, [p, 1], args=(g, is_lower))
     # print(_info)
-    return _r_phi_j_from_ints(n1, n2, c1 * integral1, c2 * integral2)
+    return _r_phi_j_from_ints(n1, n2, g, c1 * integral1, c2 * integral2)
 
 
 def _r_phi_j_quad(n1, n2):
@@ -239,7 +231,7 @@ def _r_phi_j_exact_inner(n1, n2):
     g = _g_expr(n1, n2)
     rf_u1_int = _rf_u1_int_exact(g, p) / select(is_lower, (1 - g), (1 + g))
     rf_u2_int = cond(is_lower, _lower_rf_u2_int_exact, _upper_rf_u2_int_exact, g, p)
-    return _r_phi_j_from_ints(n1, n2, rf_u1_int, rf_u2_int)
+    return _r_phi_j_from_ints(n1, n2, g, rf_u1_int, rf_u2_int)
 
 
 def _r_phi_j_exact(n1, n2):
