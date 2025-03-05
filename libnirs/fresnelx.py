@@ -47,10 +47,8 @@ def _rf_uk_integrands(t, g, is_lower):
 def _r_phi_j_from_ints(n1, n2, g, rf_u1_int, rf_u2_int):
     is_lte = n1 <= n2
     g_r = 2 * g / (1 + g)
-    u1 = 2 * rf_u1_int
-    u2 = 3 * rf_u2_int
-    r_phi = select(is_lte, u1, u1 + g_r)
-    r_j = select(is_lte, u2, u2 + sqrt(g_r) ** 3)
+    r_phi = select(is_lte, rf_u1_int, rf_u1_int + g_r)
+    r_j = select(is_lte, rf_u2_int, rf_u2_int + sqrt(g_r) ** 3)
     return r_phi, r_j
 
 
@@ -86,8 +84,8 @@ def _r_phi_j_quad_inner(n1, n2):
     else:
         n_r2 = (n2 / n1) ** 2
         rat = select(is_lower, n_r2 - 1, 1 - n_r2) / 4
-    c1 = rat / 2
-    c2 = sqrt(rat) ** 3 / 2
+    c1 = rat
+    c2 = (3 / 2) * sqrt(rat) ** 3
     integrand = _rf_uk_integrands
     (integral1, integral2), _info = quadgk(integrand, [p, 1], args=(g, is_lower))
     # print(_info)
@@ -137,7 +135,7 @@ def _rf_u1_int_exact(g, p):
         + g**3 * p**6
         + (3 * (-1 + g**2) ** 3) / (-1 + g * p**2)
         + 6 * (-1 + g**2) * (-2 * g**4 * log(p) + (-1 + g**4) * log((-1 + g * p**2) / (-1 + g)))
-    ) / (24 * g**2)
+    ) / (12 * g**2)
 
 
 def _upper_rf_u2_int_exact(g, p):
@@ -156,13 +154,12 @@ def _upper_rf_u2_int_exact(g, p):
         )
         / (p**3 * (-1 + g * p**2))
         + 105 * (-1 + g) ** 2 * (1 + g) ** 3 * (5 + g * (-2 + 5 * g)) * (atanh(sqrt(g)) - atanh(sqrt(g) * p))
-    ) / (840 * sqrt(2) * g**2 * sqrt(1 + g) ** 3)
+    ) / (280 * sqrt(2) * g**2 * sqrt(1 + g) ** 3)
 
 
 def _lower_rf_u2_int_exact(g, p):
     return (
-        2
-        * sqrt(g)
+        sqrt(g)
         * (
             -70 * g**5
             - 70 * g**4 * (-6 + g * (-3 + 5 * g)) * p**2
@@ -174,14 +171,14 @@ def _lower_rf_u2_int_exact(g, p):
             + 6 * g**3 * (5 + 7 * g) * p**10
             - 30 * g**4 * p**12
         )
-        + 210
+        + 105
         * (-1 + g) ** 3
         * (1 + g) ** 2
         * (5 + g * (2 + 5 * g))
         * p**3
         * (-1 + g * p**2)
         * (atanh(sqrt(g)) - atanh(sqrt(g) * p))
-    ) / (1680 * sqrt(2) * sqrt(1 - g) ** 3 * g**2 * p**3 * (-1 + g * p**2))
+    ) / (280 * sqrt(2) * sqrt(1 - g) ** 3 * g**2 * p**3 * (-1 + g * p**2))
 
 
 def _r_phi_j_exact_inner(n1, n2):
