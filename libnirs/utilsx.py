@@ -30,48 +30,6 @@ def _g_expr(n1, n2):
     return _abs_sym_norm(n1**2, n2**2)
 
 
-def _upper_const(n1, n2, k):
-    # n = n1 / n2
-    n_r = n2 / n1
-    if k == 1:
-        return (1 - n_r**2) / 8
-    elif k == 2:
-        return sqrt(1 - n_r**2) ** 3 / (16)
-    else:
-        raise ValueError
-
-
-def _upper_const_g(g, k):
-    if k == 1:
-        return g / (4 * (1 + g))
-    elif k == 2:
-        # return sqrt(g / (1 + g)) ** 3 / (4 * sqrt(2))
-        return sqrt(g / (2 * (1 + g))) ** 3 / 2
-    else:
-        raise ValueError
-
-
-def _lower_const(n1, n2, k):
-    # n = n1 / n2
-    n_r = n2 / n1
-    if k == 1:
-        return (n_r**2 - 1) / 8
-    elif k == 2:
-        return sqrt(n_r**2 - 1) ** 3 / 16
-    else:
-        raise ValueError
-
-
-def _lower_const_g(g, k):
-    if k == 1:
-        return g / (4 * (1 - g))
-    elif k == 2:
-        # return sqrt(g / (1 - g)) ** 3 / (4 * sqrt(2))
-        return sqrt(g / (2 * (1 - g))) ** 3 / 2
-    else:
-        raise ValueError
-
-
 def _rf_uk_integrands(t, g, is_lower):
     tr = reciprocal(t)
     t2 = t**2
@@ -124,11 +82,12 @@ def _r_phi_j_quad_inner(n1, n2):
     p = _p_expr(n1, n2)
     g = _g_expr(n1, n2)
     if _USE_ALT_G_COEF:
-        c1 = cond(is_lower, partial(_lower_const_g, k=1), partial(_upper_const_g, k=1), g)
-        c2 = cond(is_lower, partial(_lower_const_g, k=2), partial(_upper_const_g, k=2), g)
+        rat = g / (2 * select(is_lower, (1 - g), (1 + g)))
     else:
-        c1 = cond(is_lower, partial(_lower_const, k=1), partial(_upper_const, k=1), n1, n2)
-        c2 = cond(is_lower, partial(_lower_const, k=2), partial(_upper_const, k=2), n1, n2)
+        n_r2 = (n2 / n1) ** 2
+        rat = select(is_lower, n_r2 - 1, 1 - n_r2) / 4
+    c1 = rat / 2
+    c2 = sqrt(rat) ** 3 / 2
     integrand = _rf_uk_integrands
     (integral1, integral2), _info = quadgk(integrand, [p, 1], args=(g, is_lower))
     # print(_info)
