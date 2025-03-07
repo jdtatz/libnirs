@@ -4,7 +4,7 @@ Homogenous Modeling of Reflectance
 
 from numba import vectorize
 from numpy import exp, pi, sqrt
-from scipy.special import erfc
+from scipy.special import erfcx
 
 from .utils import gen_coeffs, gen_impedance, jit
 
@@ -13,18 +13,18 @@ try:
 except ImportError:
     from numba.extending import get_cython_function_address, overload
 
-    @overload(erfc)
-    def _erfc(x):
+    @overload(erfcx)
+    def _erfcx(x):
         import ctypes
 
-        addr = get_cython_function_address("scipy.special.cython_special", "__pyx_fuse_1erfc")
+        addr = get_cython_function_address("scipy.special.cython_special", "__pyx_fuse_1erfcx")
         functype = ctypes.CFUNCTYPE(ctypes.c_double, ctypes.c_double)
-        erfc_impl_inner = functype(addr)
+        erfcx_impl_inner = functype(addr)
 
-        def erfc_impl(x):
-            return erfc_impl_inner(x)
+        def erfcx_impl(x):
+            return erfcx_impl_inner(x)
 
-        return erfc_impl
+        return erfcx_impl
 
 
 @jit
@@ -112,15 +112,9 @@ def _model_td(t, rho, mua, musp, n, n_ext, c):
     alpha = 4 * D * v * t
     beta = mua
     return (
-        -D
+        D
         * v
-        * (
-            pi
-            * sqrt(alpha)
-            * exp((alpha + 2 * z_0 * z_b) ** 2 / (4 * alpha * z_b**2))
-            * erfc((alpha + 2 * z_0 * z_b) / (2 * sqrt(alpha) * z_b))
-            - 2 * sqrt(pi) * z_b
-        )
+        * (2 * sqrt(pi) * z_b - pi * sqrt(alpha) * erfcx((alpha + 2 * z_0 * z_b) / (2 * sqrt(alpha) * z_b)))
         * exp(-beta * v * t - (rho**2 + z_0**2) / alpha)
         / (pi**2 * alpha ** (3 / 2) * z_b**2)
     )
