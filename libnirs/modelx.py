@@ -3,9 +3,14 @@ Homogenous Modeling of Reflectance
 """
 
 from jax.numpy import exp, hypot, imag, iscomplexobj, pi, real, sqrt, square
-from jax.scipy.special import erfc
 
 from .fresnelx import ecbc_coeffs_exact, ecbc_coeffs_quad, impedence_exact, impedence_quad
+
+try:
+    from jax.scipy.special import erfcx
+except ImportError:
+    from .special import erfcx
+
 
 USE_EXACT_COEFS = True
 
@@ -89,15 +94,9 @@ def pcbc_td_reflectance(t, rho, k, mua, musp, n_media, n_ext, c):
     zb = 2 * D * impedence
     alpha = 4 * D * v * t
     return (
-        -D
+        D
         * v
-        * (
-            pi
-            * sqrt(alpha)
-            * exp((alpha + 2 * z0 * zb) ** 2 / (4 * alpha * zb**2))
-            * erfc((alpha + 2 * z0 * zb) / (2 * sqrt(alpha) * zb))
-            - 2 * sqrt(pi) * zb
-        )
+        * (2 * sqrt(pi) * zb - pi * sqrt(alpha) * erfcx((alpha + 2 * z0 * zb) / (2 * sqrt(alpha) * zb)))
         * exp(-k * v * t - (rho**2 + z0**2) / alpha)
         / (pi**2 * sqrt(alpha) ** 3 * zb**2)
     )
