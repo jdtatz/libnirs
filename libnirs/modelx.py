@@ -56,14 +56,24 @@ def _impedence(n_media, n_ext, *, xp):
 
 def ecbc_reflectance(rho, k, mua, musp, n_media, n_ext, *, xp=jnp):
     """Time-Independent Reflectance with Extrapolated Boundary Condition
-    parameters:
-        rho := Source-Detector Seperation [length]
-        k := pseudo-attenuation coefficient [1/length]
-        mua := Absorption Coefficent [1/length]
-        musp := Reduced Scattering Coefficent [1/length]
-        n_media := Media Index of Refraction []
-        n_ext := External Index of Refraction []
-    Returns:
+
+    Parameters
+    ----------
+    rho
+        Source-Detector Seperation [length]
+    k
+        pseudo-attenuation coefficient [1/length]
+    mua
+        Absorption Coefficent [1/length]
+    musp
+        Reduced Scattering Coefficent [1/length]
+    n_media
+        Media Index of Refraction []
+    n_ext
+        External Index of Refraction []
+
+    Returns
+    -------
         Reflectance [1/length^2]
     """
     impedence, fresTj, fresTphi = _ecbc_coeffs(n_media, n_ext, xp=xp)
@@ -86,16 +96,28 @@ def ecbc_reflectance(rho, k, mua, musp, n_media, n_ext, *, xp=jnp):
 
 def pcbc_td_reflectance(t, rho, k, mua, musp, n_media, n_ext, c, *, xp=jnp):
     """Time-Domain Reflectance with Partial-Current Boundary Condition
-    parameters:
-        t := Time of Flight [time]
-        rho := Source-Detector Seperation [length]
-        k := pseudo-attenuation coefficient [1/length]
-        mua := Absorption Coefficent [1/length]
-        musp := Reduced Scattering Coefficent [1/length]
-        n_media := Media Index of Refraction []
-        n_ext := External Index of Refraction []
-        c := Speed of Light in vacuum [length/time]
-    Returns:
+
+    Parameters
+    ----------
+    t
+        Time of Flight [time]
+    rho
+        Source-Detector Seperation [length]
+    k
+        pseudo-attenuation coefficient [1/length]
+    mua
+        Absorption Coefficent [1/length]
+    musp
+        Reduced Scattering Coefficent [1/length]
+    n_media
+        Media Index of Refraction []
+    n_ext
+        External Index of Refraction []
+    c
+        Speed of Light in vacuum [length/time]
+
+    Returns
+    -------
         Time-Domain Reflectance [1/length^2/time]
     """
     impedence = _impedence(n_media, n_ext, xp=xp)
@@ -118,15 +140,27 @@ def pcbc_td_reflectance(t, rho, k, mua, musp, n_media, n_ext, c, *, xp=jnp):
 
 def model_ss(rho, mua, musp, n_media, n_ext, *, xp=jnp):
     """Model Steady-State Reflectance with Extrapolated Boundary Condition.
-    Source: "Kienle, A., & Patterson, M. S. (1997). Improved solutions of the steady-state and the time-resolved diffusion equations for reflectance from a semi-infinite turbid medium. Journal of the Optical Society of America A, 14(1), 246. doi:10.1364/josaa.14.000246 "
-    parameters:
-        rho := Source-Detector Seperation [length]
-        mua := Absorption Coefficent [1/length]
-        musp := Reduced Scattering Coefficent [1/length]
-        n_media := Media Index of Refraction []
-        n_ext := External Index of Refraction []
-    Returns:
+
+    Parameters
+    ----------
+    rho
+        Source-Detector Seperation [length]
+    mua
+        Absorption Coefficent [1/length]
+    musp
+        Reduced Scattering Coefficent [1/length]
+    n_media
+        Media Index of Refraction []
+    n_ext
+        External Index of Refraction []
+
+    Returns
+    -------
         Steady-State Reflectance [1/length^2]
+
+    References
+    ----------
+    .. [1] Kienle, A., & Patterson, M. S. (1997). Improved solutions of the steady-state and the time-resolved diffusion equations for reflectance from a semi-infinite turbid medium. Journal of the Optical Society of America A, 14(1), 246. doi:10.1364/josaa.14.000246
     """
     D = 1 / (3 * (mua + musp))
     k = xp.sqrt(mua / D)
@@ -135,14 +169,29 @@ def model_ss(rho, mua, musp, n_media, n_ext, *, xp=jnp):
 
 def model_fd(rho, mua, musp, spatial_freq, n_media, n_ext, *, xp=jnp):
     """Model Frequncy-Domain Reflectance with Extrapolated Boundary Condition.
-    Source: "Kienle, A., & Patterson, M. S. (1997). Improved solutions of the steady-state and the time-resolved diffusion equations for reflectance from a semi-infinite turbid medium. Journal of the Optical Society of America A, 14(1), 246. doi:10.1364/josaa.14.000246 "
-    parameters:
-        rho := Source-Detector Seperation [length]
-        mua := Absorption Coefficent [1/length]
-        musp := Reduced Scattering Coefficent [1/length]
-        spatial_freq := Spatial Frequncy of the Source in vacuum (`ξ = freq / c`) [1/length]
-        n_media := Media Index of Refraction []
-        n_ext := External Index of Refraction []
+
+    Parameters
+    ----------
+    rho
+        Source-Detector Seperation [length]
+    mua
+        Absorption Coefficent [1/length]
+    musp
+        Reduced Scattering Coefficent [1/length]
+    spatial_freq
+        Spatial Frequncy of the Source in vacuum (`ξ = freq / c`) [1/length]
+    n_media
+        Media Index of Refraction []
+    n_ext
+        External Index of Refraction []
+
+    Returns
+    -------
+        Frequncy-Domain Reflectance [1/length^2]
+
+    References
+    ----------
+    .. [1] Kienle, A., & Patterson, M. S. (1997). Improved solutions of the steady-state and the time-resolved diffusion equations for reflectance from a semi-infinite turbid medium. Journal of the Optical Society of America A, 14(1), 246. doi:10.1364/josaa.14.000246
     """
     D = 1 / (3 * (mua + musp))
     src_k = 2 * pi * n_media * spatial_freq
@@ -155,17 +204,31 @@ def model_fd(rho, mua, musp, spatial_freq, n_media, n_ext, *, xp=jnp):
 
 def model_td(t, rho, mua, musp, n_media, n_ext, c, *, xp=jnp):
     """Model Time-Domain Reflectance with Partial-Current Boundary Condition.
-    Source: "Kienle, A., & Patterson, M. S. (1997). Improved solutions of the steady-state and the time-resolved diffusion equations for reflectance from a semi-infinite turbid medium. Journal of the Optical Society of America A, 14(1), 246. doi:10.1364/josaa.14.000246 "
-    parameters:
-        t := Time of Flight [time]
-        rho := Source-Detector Seperation [length]
-        mua := Absorption Coefficent [1/length]
-        musp := Reduced Scattering Coefficent [1/length]
-        n_media := Media Index of Refraction []
-        n_ext := External Index of Refraction []
-        c := Speed of Light in vacuum [length/time]
-    Returns:
+
+    Parameters
+    ----------
+    t
+        Time of Flight [time]
+    rho
+        Source-Detector Seperation [length]
+    mua
+        Absorption Coefficent [1/length]
+    musp
+        Reduced Scattering Coefficent [1/length]
+    n_media
+        Media Index of Refraction []
+    n_ext
+        External Index of Refraction []
+    c
+        Speed of Light in vacuum [length/time]
+
+    Returns
+    -------
         Time-Domain Reflectance [1/length^2/time]
+
+    References
+    ----------
+    .. [1] Kienle, A., & Patterson, M. S. (1997). Improved solutions of the steady-state and the time-resolved diffusion equations for reflectance from a semi-infinite turbid medium. Journal of the Optical Society of America A, 14(1), 246. doi:10.1364/josaa.14.000246
     """
     k = mua
     return pcbc_td_reflectance(t, rho, k, mua, musp, n_media, n_ext, c, xp=xp)
@@ -173,16 +236,33 @@ def model_td(t, rho, mua, musp, n_media, n_ext, c, *, xp=jnp):
 
 def model_g1_unnorm(rho, mua, musp, wavelength, bfi, tau, n_media, n_ext, *, xp=jnp):
     """Model G1 (unnormalized electric field autocorrelation) for Diffuse correlation spectroscopy with Extrapolated Boundary Condition.
-    Source: "Diffuse optics for tissue monitoring and tomography"
-    parameters:
-        rho := Source-Detector Seperation [length]
-        mua := Absorption Coefficent [1/length]
-        musp := Reduced Scattering Coefficent [1/length]
-        wavelength := Wavelength of Light [length]
-        bfi := Blood-Flow Index [length^2/time]
-        tau := Correlation time [time]
-        n_media := Media Index of Refraction []
-        n_ext := External Index of Refraction []
+
+    Parameters
+    ----------
+    rho
+        Source-Detector Seperation [length]
+    mua
+        Absorption Coefficent [1/length]
+    musp
+        Reduced Scattering Coefficent [1/length]
+    wavelength
+        Wavelength of Light [length]
+    bfi
+        Blood-Flow Index [length^2/time]
+    tau
+        Correlation time [time]
+    n_media
+        Media Index of Refraction []
+    n_ext
+        External Index of Refraction []
+
+    Returns
+    -------
+        Unnormalized Steady-State Electric Field Autocorrelation [1/length^2]
+
+    References
+    ----------
+    .. [1] Durduran, T., Choe, R., Baker, W. B., & Yodh, A. G. (2010). Diffuse optics for tissue monitoring and tomography. Reports on Progress in Physics, 73(7), 076701. doi:10.1088/0034-4885/73/7/076701
     """
     D = 1 / (3 * (mua + musp))
     k0 = 2 * pi * n_media / wavelength
@@ -192,17 +272,35 @@ def model_g1_unnorm(rho, mua, musp, wavelength, bfi, tau, n_media, n_ext, *, xp=
 
 def model_fd_g1_unnorm(rho, mua, musp, wavelength, bfi, tau, spatial_freq, n_media, n_ext, *, xp=jnp):
     """Model G1 (unnormalized electric field autocorrelation) for Frequency Domain Diffuse correlation spectroscopy with Extrapolated Boundary Condition.
-    Source: "Frequency Domain Diffuse Correlation Spectroscopy: A New Method for Simultaneous Estimation of Static and Dynamic Tissue Optical Properties"
-    parameters:
-        rho := Source-Detector Seperation [length]
-        mua := Absorption Coefficent [1/length]
-        musp := Reduced Scattering Coefficent [1/length]
-        wavelength := Wavelength of Light [length]
-        bfi := Blood-Flow Index [length^2/time]
-        tau := Correlation time [time]
-        spatial_freq := Spatial Frequncy of the Source in vacuum (`ξ = freq / c`) [1/length]
-        n_media := Media Index of Refraction []
-        n_ext := External Index of Refraction []
+
+    Parameters
+    ----------
+    rho
+        Source-Detector Seperation [length]
+    mua
+        Absorption Coefficent [1/length]
+    musp
+        Reduced Scattering Coefficent [1/length]
+    wavelength
+        Wavelength of Light [length]
+    bfi
+        Blood-Flow Index [length^2/time]
+    tau
+        Correlation time [time]
+    spatial_freq
+        Spatial Frequncy of the Source in vacuum (`ξ = freq / c`) [1/length]
+    n_media
+        Media Index of Refraction []
+    n_ext
+        External Index of Refraction []
+
+    Returns
+    -------
+        Unnormalized Frequency Domain Electric Field Autocorrelation [1/length^2]
+
+    References
+    ----------
+    .. [1] Moka, S., Safi, A. M., Mohammad, P. P. S., Eddins, A., & Parthasarathy, A. B. (2022). Frequency domain diffuse correlation spectroscopy: a new method for simultaneous estimation of static and dynamic tissue optical properties (K. C. Maitland, D. M. Roblyer, & P. J. Campagnola, Eds.). SPIE. doi: 10.1117/12.2610115
     """
     D = 1 / (3 * (mua + musp))
     src_k = 2 * pi * n_media * spatial_freq
@@ -213,16 +311,33 @@ def model_fd_g1_unnorm(rho, mua, musp, wavelength, bfi, tau, spatial_freq, n_med
 
 def model_g1_norm(rho, mua, musp, wavelength, bfi, tau, n_media, n_ext, *, xp=jnp):
     """Model g1 (normalized electric field autocorrelation) for Diffuse correlation spectroscopy with Extrapolated Boundary Condition.
-    Source: "Diffuse optics for tissue monitoring and tomography"
-    parameters:
-        rho := Source-Detector Seperation [length]
-        mua := Absorption Coefficent [1/length]
-        musp := Reduced Scattering Coefficent [1/length]
-        wavelength := Wavelength of Light [length]
-        bfi := Blood-Flow Index [length^2/time]
-        tau := Correlation time [time]
-        n_media := Media Index of Refraction []
-        n_ext := External Index of Refraction []
+
+    Parameters
+    ----------
+    rho
+        Source-Detector Seperation [length]
+    mua
+        Absorption Coefficent [1/length]
+    musp
+        Reduced Scattering Coefficent [1/length]
+    wavelength
+        Wavelength of Light [length]
+    bfi
+        Blood-Flow Index [length^2/time]
+    tau
+        Correlation time [time]
+    n_media
+        Media Index of Refraction []
+    n_ext
+        External Index of Refraction []
+
+    Returns
+    -------
+        Normalized Steady-State Electric Field Autocorrelation []
+
+    References
+    ----------
+    .. [1] Durduran, T., Choe, R., Baker, W. B., & Yodh, A. G. (2010). Diffuse optics for tissue monitoring and tomography. Reports on Progress in Physics, 73(7), 076701. doi:10.1088/0034-4885/73/7/076701
     """
     D = 1 / (3 * (mua + musp))
     k0 = 2 * pi * n_media / wavelength
@@ -234,26 +349,52 @@ def model_g1_norm(rho, mua, musp, wavelength, bfi, tau, n_media, n_ext, *, xp=jn
 
 def g2_from_g1(g1, beta, *, xp=jnp):
     """Compute g2 (normalized intensity autocorrelation) using the Siegert relation
-    parameters:
-        g1 := normalized electric field autocorrelation []
-        beta := Beta derived for Siegert relation []
+
+    Parameters
+    ----------
+    g1
+        normalized electric field autocorrelation []
+    beta
+        Beta derived for Siegert relation []
+
+    Returns
+    -------
+        Normalized Steady-State Intensity Autocorrelation []
     """
     return 1 + beta * abs_square(g1, xp=xp)
 
 
 def model_g2(rho, mua, musp, wavelength, bfi, tau, beta, n_media, n_ext, *, xp=jnp):
     """Model g2 (normalized intensity autocorrelation) for Diffuse correlation spectroscopy with Extrapolated Boundary Condition.
-    Source: "Diffuse optics for tissue monitoring and tomography"
-    parameters:
-        rho := Source-Detector Seperation [length]
-        mua := Absorption Coefficent [1/length]
-        musp := Reduced Scattering Coefficent [1/length]
-        wavelength := Wavelength of Light [length]
-        bfi := Blood-Flow Index [length^2/time]
-        tau := Correlation time [time]
-        beta := Beta derived for Siegert relation []
-        n_media := Media Index of Refraction []
-        n_ext := External Index of Refraction []
+
+    Parameters
+    ----------
+    rho
+        Source-Detector Seperation [length]
+    mua
+        Absorption Coefficent [1/length]
+    musp
+        Reduced Scattering Coefficent [1/length]
+    wavelength
+        Wavelength of Light [length]
+    bfi
+        Blood-Flow Index [length^2/time]
+    tau
+        Correlation time [time]
+    beta
+        Beta derived for Siegert relation []
+    n_media
+        Media Index of Refraction []
+    n_ext
+        External Index of Refraction []
+
+    Returns
+    -------
+        Normalized Steady-State Intensity Autocorrelation []
+
+    References
+    ----------
+    .. [1] Durduran, T., Choe, R., Baker, W. B., & Yodh, A. G. (2010). Diffuse optics for tissue monitoring and tomography. Reports on Progress in Physics, 73(7), 076701. doi:10.1088/0034-4885/73/7/076701
     """
     g1 = model_g1_norm(rho, mua, musp, wavelength, bfi, tau, n_media, n_ext, xp=xp)
     return g2_from_g1(g1, beta, xp=xp)
@@ -261,17 +402,35 @@ def model_g2(rho, mua, musp, wavelength, bfi, tau, beta, n_media, n_ext, *, xp=j
 
 def model_fd_g1_norm(rho, mua, musp, wavelength, bfi, tau, spatial_freq, n_media, n_ext, *, xp=jnp):
     """Model g1 (normalized electric field autocorrelation) for Frequency Domain Diffuse correlation spectroscopy with Extrapolated Boundary Condition.
-    Source: "Frequency Domain Diffuse Correlation Spectroscopy: A New Method for Simultaneous Estimation of Static and Dynamic Tissue Optical Properties"
-    parameters:
-        rho := Source-Detector Seperation [length]
-        mua := Absorption Coefficent [1/length]
-        musp := Reduced Scattering Coefficent [1/length]
-        wavelength := Wavelength of Light [length]
-        bfi := Blood-Flow Index [length^2/time]
-        tau := Correlation time [time]
-        spatial_freq := Spatial Frequncy of the Source in vacuum (`ξ = freq / c`) [1/length]
-        n_media := Media Index of Refraction []
-        n_ext := External Index of Refraction []
+
+    Parameters
+    ----------
+    rho
+        Source-Detector Seperation [length]
+    mua
+        Absorption Coefficent [1/length]
+    musp
+        Reduced Scattering Coefficent [1/length]
+    wavelength
+        Wavelength of Light [length]
+    bfi
+        Blood-Flow Index [length^2/time]
+    tau
+        Correlation time [time]
+    spatial_freq
+        Spatial Frequncy of the Source in vacuum (`ξ = freq / c`) [1/length]
+    n_media
+        Media Index of Refraction []
+    n_ext
+        External Index of Refraction []
+
+    Returns
+    -------
+        Normalized Frequency Domain Electric Field Autocorrelation []
+
+    References
+    ----------
+    .. [1] Moka, S., Safi, A. M., Mohammad, P. P. S., Eddins, A., & Parthasarathy, A. B. (2022). Frequency domain diffuse correlation spectroscopy: a new method for simultaneous estimation of static and dynamic tissue optical properties (K. C. Maitland, D. M. Roblyer, & P. J. Campagnola, Eds.). SPIE. doi: 10.1117/12.2610115
     """
     D = 1 / (3 * (mua + musp))
     src_k = 2 * pi * n_media * spatial_freq
@@ -284,24 +443,50 @@ def model_fd_g1_norm(rho, mua, musp, wavelength, bfi, tau, spatial_freq, n_media
 
 def simplified_fd_g2_from_g1(g1_dc, g1_ac, beta, mod_depth, *, xp=jnp):
     """Compute Frequency Domain g2 (normalized intensity autocorrelation) using the extended Siegert relation
-    Source: "Frequency Domain Diffuse Correlation Spectroscopy: A New Method for Simultaneous Estimation of Static and Dynamic Tissue Optical Properties"
-    parameters:
-        g1_dc := Steady State normalized electric field autocorrelation []
-        g1_ac := Frequency Domain normalized electric field autocorrelation []
-        beta := Beta derived for Siegert relation []
-        mod_depth := Source Modulation Depth []
+
+    Parameters
+    ----------
+    g1_dc
+        Steady State normalized electric field autocorrelation []
+    g1_ac
+        Frequency Domain normalized electric field autocorrelation []
+    beta
+        Beta derived for Siegert relation []
+    mod_depth
+        Source Modulation Depth []
+
+    Returns
+    -------
+        Normalized Frequency Domain Intensity Autocorrelation []
+
+    References
+    ----------
+    .. [1] Moka, S., Safi, A. M., Mohammad, P. P. S., Eddins, A., & Parthasarathy, A. B. (2022). Frequency domain diffuse correlation spectroscopy: a new method for simultaneous estimation of static and dynamic tissue optical properties (K. C. Maitland, D. M. Roblyer, & P. J. Campagnola, Eds.). SPIE. doi: 10.1117/12.2610115
     """
     return 1 + beta * (1 - mod_depth) * g1_dc**2 + beta * mod_depth * abs_square(g1_ac, xp=xp)
 
 
 def expanded_fd_g2_from_g1(g1_dc, g1_ac, beta, mod_depth, *, xp=jnp):
     """Compute Frequency Domain g2 (normalized intensity autocorrelation) using the expanded intensity autocorrelation form
-    Source: "Frequency Domain Diffuse Optics Spectroscopies for Quantitative Measurement of Tissue Optical Properties"
-    parameters:
-        g1_dc := Steady State normalized electric field autocorrelation []
-        g1_ac := Frequency Domain normalized electric field autocorrelation []
-        beta := Beta derived for Siegert relation []
-        mod_depth := Source Modulation Depth []
+
+    Parameters
+    ----------
+    g1_dc
+        Steady State normalized electric field autocorrelation []
+    g1_ac
+        Frequency Domain normalized electric field autocorrelation []
+    beta
+        Beta derived for Siegert relation []
+    mod_depth
+        Source Modulation Depth []
+
+    Returns
+    -------
+        Normalized Frequency Domain Intensity Autocorrelation []
+
+    References
+    ----------
+    .. [1] Moka, Sadhu, "Frequency Domain Diffuse Optics Spectroscopies for Quantitative Measurement of Tissue Optical Properties" (2022). USF Tampa Graduate Theses and Dissertations
     """
     return 1 + beta * ((g1_dc + mod_depth * cabs(g1_ac, xp=xp)) / (1 + mod_depth)) ** 2
 
@@ -322,19 +507,39 @@ def model_fd_g2_simplified(
     xp=jnp,
 ):
     """Model g2 (normalized intensity autocorrelation) for Frequency Domain Diffuse correlation spectroscopy with Extrapolated Boundary Condition.
-    Source: "Frequency Domain Diffuse Correlation Spectroscopy: A New Method for Simultaneous Estimation of Static and Dynamic Tissue Optical Properties"
-    parameters:
-        rho := Source-Detector Seperation [length]
-        mua := Absorption Coefficent [1/length]
-        musp := Reduced Scattering Coefficent [1/length]
-        wavelength := Wavelength of Light [length]
-        bfi := Blood-Flow Index [length^2/time]
-        tau := Correlation time [time]
-        spatial_freq := Spatial Frequncy of the Source in vacuum (`ξ = freq / c`) [1/length]
-        beta := Beta derived for Siegert relation []
-        mod_depth := Source Modulation Depth []
-        n_media := Media Index of Refraction []
-        n_ext := External Index of Refraction []
+
+    Parameters
+    ----------
+    rho
+        Source-Detector Seperation [length]
+    mua
+        Absorption Coefficent [1/length]
+    musp
+        Reduced Scattering Coefficent [1/length]
+    wavelength
+        Wavelength of Light [length]
+    bfi
+        Blood-Flow Index [length^2/time]
+    tau
+        Correlation time [time]
+    spatial_freq
+        Spatial Frequncy of the Source in vacuum (`ξ = freq / c`) [1/length]
+    beta
+        Beta derived for Siegert relation []
+    mod_depth
+        Source Modulation Depth []
+    n_media
+        Media Index of Refraction []
+    n_ext
+        External Index of Refraction []
+
+    Returns
+    -------
+        Normalized Frequency Domain Intensity Autocorrelation []
+
+    References
+    ----------
+    .. [1] Moka, S., Safi, A. M., Mohammad, P. P. S., Eddins, A., & Parthasarathy, A. B. (2022). Frequency domain diffuse correlation spectroscopy: a new method for simultaneous estimation of static and dynamic tissue optical properties (K. C. Maitland, D. M. Roblyer, & P. J. Campagnola, Eds.). SPIE. doi: 10.1117/12.2610115
     """
     # return 1 + beta * (1 - mod_depth) * model_g1(...)**2 + beta * mod_depth * abs_square(model_fd_g1(...))
     D = 1 / (3 * (mua + musp))
@@ -365,19 +570,39 @@ def model_fd_g2(
     xp=jnp,
 ):
     """Model g2 (normalized intensity autocorrelation) for Frequency Domain Diffuse correlation spectroscopy with Extrapolated Boundary Condition.
-    Source: "Frequency Domain Diffuse Optics Spectroscopies for Quantitative Measurement of Tissue Optical Properties"
-    parameters:
-        rho := Source-Detector Seperation [length]
-        mua := Absorption Coefficent [1/length]
-        musp := Reduced Scattering Coefficent [1/length]
-        wavelength := Wavelength of Light [length]
-        bfi := Blood-Flow Index [length^2/time]
-        tau := Correlation time [time]
-        spatial_freq := Spatial Frequncy of the Source in vacuum (`ξ = freq / c`) [1/length]
-        beta := Beta derived for Siegert relation []
-        mod_depth := Source Modulation Depth []
-        n_media := Media Index of Refraction []
-        n_ext := External Index of Refraction []
+
+    Parameters
+    ----------
+    rho
+        Source-Detector Seperation [length]
+    mua
+        Absorption Coefficent [1/length]
+    musp
+        Reduced Scattering Coefficent [1/length]
+    wavelength
+        Wavelength of Light [length]
+    bfi
+        Blood-Flow Index [length^2/time]
+    tau
+        Correlation time [time]
+    spatial_freq
+        Spatial Frequncy of the Source in vacuum (`ξ = freq / c`) [1/length]
+    beta
+        Beta derived for Siegert relation []
+    mod_depth
+        Source Modulation Depth []
+    n_media
+        Media Index of Refraction []
+    n_ext
+        External Index of Refraction []
+
+    Returns
+    -------
+        Normalized Frequency Domain Intensity Autocorrelation []
+
+    References
+    ----------
+    .. [1] Moka, Sadhu, "Frequency Domain Diffuse Optics Spectroscopies for Quantitative Measurement of Tissue Optical Properties" (2022). USF Tampa Graduate Theses and Dissertations
     """
     # return 1 + beta * ((model_g1(...) + mod_depth * abs(model_fd_g1(...))) / (1 + mod_depth))**2
     D = 1 / (3 * (mua + musp))
