@@ -32,7 +32,7 @@ class PhotonAnalysis(NamedTuple):
     layer_momentum_distr: WeightedCentralMoments
 
     @staticmethod
-    def alloc(n_detector: int, n_tof: int, n_media: int) -> PhotonAnalysis:
+    def alloc(n_detector: int, n_tof: int, n_media: int):
         return PhotonAnalysis(
             counts=np.zeros((n_detector, n_tof), dtype=np.uint64),
             phi_time_distr=CentralMoments.alloc((n_detector, n_tof)),
@@ -45,7 +45,7 @@ class PhotonAnalysis(NamedTuple):
         )
 
     @staticmethod
-    def from_arrays(analysis) -> PhotonAnalysis:
+    def from_arrays(analysis):
         return PhotonAnalysis(
             counts=analysis.counts,
             phi_time_distr=CentralMoments.from_array(analysis.phi_time_distr),
