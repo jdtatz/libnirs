@@ -4,24 +4,25 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "libnirs"
-version = "0.7.4"
+version = "0.8.0"
 description = "Library for NIRS analysis"
 license = {text = "Proprietary"}
 authors = [{name = "Julia Tatz", email = "julia.tatz@childrens.harvard.edu"}]
-requires-python = ">=3.8"
+requires-python = ">=3.12"
 dependencies = [
-    "numpy",
+    "numpy>=2",
     "scipy",
-    "matplotlib",
-    "numba",
-    "xarray"
+    "array-api-compat",
+    "array-api-extra",
+    "jax",
 ]
 
 [project.optional-dependencies]
-accurate = ["numba-scipy @ git+https://github.com/numba/numba-scipy.git"]
-# broadband = ["pmcx"]
-broadband = ["pmcx @ git+https://github.com/jdtatz/mcx.git@diskarray-src"]
+broadband = ["numba", "xarray", "pmcx"]
+# broadband = ["numba", "xarray", "pmcx @ git+https://github.com/jdtatz/mcx.git@diskarray-src"]
+deprecated_models = ["numba"]
 kspace = ["h5py"]
+plotting = ["matplotlib"]
 dev = ["sympy"]
 
 [tool.setuptools]
