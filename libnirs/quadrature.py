@@ -66,7 +66,7 @@ def quad(
         wrapped_integrator = partial(_custom_quadrature, integrator) if _use_custom_quadrature else integrator
         integral = wrapped_integrator(integrand, a, b, args)
     else:
-        integral, _err, _info = quad_vec(integrand, a, b, args=args, quadrature=rule)
+        integral, _err = quad_vec(integrand, a, b, args=args, quadrature=rule)
     return integral
 
 
